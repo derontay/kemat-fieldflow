@@ -201,12 +201,35 @@ export async function getProjectDetail(projectId: string) {
 
 export async function getTasks() {
   const { supabase, organization } = await getCurrentOrganization();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("tasks")
     .select("*, project:projects(name)")
     .eq("organization_id", organization.id)
     .order("due_date", { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
   return data ?? [];
+}
+
+export async function getTaskDetail(taskId: string) {
+  const { supabase, organization } = await getCurrentOrganization();
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("*")
+    .eq("organization_id", organization.id)
+    .eq("id", taskId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) notFound();
+
+  return data as Task;
 }
 
 export async function getExpenses() {

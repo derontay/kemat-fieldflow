@@ -78,36 +78,92 @@ export async function deleteProjectAction(formData: FormData) {
 
 export async function createTaskAction(formData: FormData) {
   const { supabase, organization, userId } = await getCurrentOrganization();
-  await supabase.from("tasks").insert({
-    organization_id: organization.id,
-    project_id: formData.get("project_id"),
-    assignee_id: formData.get("assignee_id") || userId,
-    title: formData.get("title"),
-    description: formData.get("description"),
-    due_date: formData.get("due_date") || null,
-    priority: formData.get("priority"),
-    status: formData.get("status"),
-  });
-
   const projectId = String(formData.get("project_id"));
+  const { data, error } = await supabase
+    .from("tasks")
+    .insert({
+      organization_id: organization.id,
+      project_id: projectId,
+      assignee_id: formData.get("assignee_id") || userId,
+      title: formData.get("title"),
+      description: formData.get("description"),
+      due_date: formData.get("due_date") || null,
+      priority: formData.get("priority"),
+      status: formData.get("status"),
+    })
+    .select("id, project_id")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
   revalidatePath("/tasks");
-  revalidatePath("/dashboard");
+  revalidatePath(`/tasks/${data.id}/edit`);
+  revalidatePath(`/projects/${data.project_id}`);
+  redirect("/tasks");
+}
+
+export async function updateTaskAction(formData: FormData) {
+  const { supabase, organization, userId } = await getCurrentOrganization();
+  const taskId = String(formData.get("task_id"));
+  const projectId = String(formData.get("project_id"));
+  const { error } = await supabase
+    .from("tasks")
+    .update({
+      project_id: projectId,
+      assignee_id: formData.get("assignee_id") || userId,
+      title: formData.get("title"),
+      description: formData.get("description"),
+      due_date: formData.get("due_date") || null,
+      priority: formData.get("priority"),
+      status: formData.get("status"),
+    })
+    .eq("organization_id", organization.id)
+    .eq("id", taskId);
+
+  if (error) {
+    throw error;
+  }
+
+  revalidatePath("/tasks");
+  revalidatePath(`/tasks/${taskId}/edit`);
   revalidatePath(`/projects/${projectId}`);
+  redirect("/tasks");
 }
 
 export async function updateTaskStatusAction(formData: FormData) {
   const { supabase, organization } = await getCurrentOrganization();
   const taskId = String(formData.get("task_id"));
   const projectId = String(formData.get("project_id"));
-  await supabase
+  const { error } = await supabase
     .from("tasks")
     .update({ status: formData.get("status") })
     .eq("organization_id", organization.id)
     .eq("id", taskId);
 
+  if (error) {
+    throw error;
+  }
+
   revalidatePath("/tasks");
-  revalidatePath("/dashboard");
+  revalidatePath(`/tasks/${taskId}/edit`);
   if (projectId) revalidatePath(`/projects/${projectId}`);
+}
+
+export async function deleteTaskAction(formData: FormData) {
+  const { supabase, organization } = await getCurrentOrganization();
+  const taskId = String(formData.get("task_id"));
+  const projectId = String(formData.get("project_id"));
+  const { error } = await supabase.from("tasks").delete().eq("organization_id", organization.id).eq("id", taskId);
+
+  if (error) {
+    throw error;
+  }
+
+  revalidatePath("/tasks");
+  if (projectId) revalidatePath(`/projects/${projectId}`);
+  redirect("/tasks");
 }
 
 export async function createFieldUpdateAction(formData: FormData) {
