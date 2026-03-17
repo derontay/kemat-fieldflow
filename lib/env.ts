@@ -8,8 +8,18 @@ function required(name: string) {
   return value;
 }
 
-export const env = {
-  appUrl: required("NEXT_PUBLIC_APP_URL"),
-  supabaseUrl: required("NEXT_PUBLIC_SUPABASE_URL"),
-  supabaseAnonKey: required("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
-};
+function trimTrailingSlash(value: string) {
+  return value.replace(/\/+$/, "");
+}
+
+export function getAppUrl() {
+  return trimTrailingSlash(required("NEXT_PUBLIC_APP_URL"));
+}
+
+export function getSupabaseUrl() {
+  return required("NEXT_PUBLIC_SUPABASE_URL");
+}
+
+export function getSupabaseAnonKey() {
+  return required("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+}

@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { env } from "@/lib/env";
+import { getAppUrl } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
 export async function authAction(formData: FormData) {
@@ -12,11 +12,12 @@ export async function authAction(formData: FormData) {
   const name = String(formData.get("name") || "").trim();
 
   if (mode === "signup") {
+    const appUrl = getAppUrl();
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${env.appUrl}/auth/callback`,
+        emailRedirectTo: `${appUrl}/auth/callback`,
         data: name ? { full_name: name } : undefined,
       },
     });
@@ -33,8 +34,9 @@ export async function authAction(formData: FormData) {
   }
 
   if (mode === "reset-password") {
+    const appUrl = getAppUrl();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${env.appUrl}/auth/callback?next=${encodeURIComponent("/reset-password?mode=update")}`,
+      redirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent("/reset-password?mode=update")}`,
     });
 
     if (error) {

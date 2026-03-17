@@ -87,7 +87,7 @@ npm run dev
 2. In Supabase, enable Email Auth.
 3. Add your local and production callback URLs in Supabase Auth settings:
    - `http://localhost:3000/auth/callback`
-   - `https://your-production-domain/auth/callback`
+   - `https://kemat-fieldflow.vercel.app/auth/callback`
 4. Copy the project URL and anon key into your environment variables.
 
 ## Migration Order
@@ -120,12 +120,12 @@ The current app does not require Stripe env vars and does not require a Supabase
 4. Set `NEXT_PUBLIC_APP_URL` to your final production URL, for example:
 
 ```env
-NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
+NEXT_PUBLIC_APP_URL=https://kemat-fieldflow.vercel.app
 ```
 
 5. Deploy the app.
 6. After deploy, go back to Supabase Auth settings and confirm the production callback URL is allowed:
-   - `https://your-app.vercel.app/auth/callback`
+   - `https://kemat-fieldflow.vercel.app/auth/callback`
 7. Re-deploy if you changed environment variables after the first build.
 
 ## Missing Production Requirements
