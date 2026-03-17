@@ -207,15 +207,61 @@ export async function createExpenseAction(formData: FormData) {
 
 export async function createVendorAction(formData: FormData) {
   const { supabase, organization } = await getCurrentOrganization();
-  await supabase.from("vendors").insert({
-    organization_id: organization.id,
-    name: formData.get("name"),
-    trade: formData.get("trade"),
-    phone: formData.get("phone"),
-    email: formData.get("email"),
-    notes: formData.get("notes"),
-  });
+  const { data, error } = await supabase
+    .from("vendors")
+    .insert({
+      organization_id: organization.id,
+      name: formData.get("name"),
+      trade: formData.get("trade"),
+      phone: formData.get("phone"),
+      email: formData.get("email"),
+      notes: formData.get("notes"),
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    throw error;
+  }
 
   revalidatePath("/vendors");
-  revalidatePath("/projects");
+  revalidatePath(`/vendors/${data.id}/edit`);
+  redirect("/vendors");
+}
+
+export async function updateVendorAction(formData: FormData) {
+  const { supabase, organization } = await getCurrentOrganization();
+  const vendorId = String(formData.get("vendor_id"));
+  const { error } = await supabase
+    .from("vendors")
+    .update({
+      name: formData.get("name"),
+      trade: formData.get("trade"),
+      phone: formData.get("phone"),
+      email: formData.get("email"),
+      notes: formData.get("notes"),
+    })
+    .eq("organization_id", organization.id)
+    .eq("id", vendorId);
+
+  if (error) {
+    throw error;
+  }
+
+  revalidatePath("/vendors");
+  revalidatePath(`/vendors/${vendorId}/edit`);
+  redirect("/vendors");
+}
+
+export async function deleteVendorAction(formData: FormData) {
+  const { supabase, organization } = await getCurrentOrganization();
+  const vendorId = String(formData.get("vendor_id"));
+  const { error } = await supabase.from("vendors").delete().eq("organization_id", organization.id).eq("id", vendorId);
+
+  if (error) {
+    throw error;
+  }
+
+  revalidatePath("/vendors");
+  redirect("/vendors");
 }

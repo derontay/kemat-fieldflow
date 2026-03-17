@@ -244,12 +244,35 @@ export async function getExpenses() {
 
 export async function getVendors() {
   const { supabase, organization } = await getCurrentOrganization();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("vendors")
     .select("*")
     .eq("organization_id", organization.id)
     .order("name");
-  return data ?? [];
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as Vendor[];
+}
+
+export async function getVendorDetail(vendorId: string) {
+  const { supabase, organization } = await getCurrentOrganization();
+  const { data, error } = await supabase
+    .from("vendors")
+    .select("*")
+    .eq("organization_id", organization.id)
+    .eq("id", vendorId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) notFound();
+
+  return data as Vendor;
 }
 
 export async function getBillingState() {

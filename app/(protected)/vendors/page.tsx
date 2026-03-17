@@ -1,12 +1,66 @@
-import { PlaceholderPage } from "@/components/layout/placeholder-page";
+import { Topbar } from "@/components/layout/topbar";
+import { ButtonLink, Card, Badge } from "@/components/ui";
+import { getVendors } from "@/lib/data";
 
-export default function VendorsPage() {
+export default async function VendorsPage() {
+  const vendors = await getVendors();
+
   return (
-    <PlaceholderPage
-      title="Vendors"
-      subtitle="A placeholder directory for subcontractors and suppliers."
-      description="Phase 2 will add vendor records, trade filters, and project associations."
-      highlights={["Vendor list shell", "Trade tagging area", "Contact detail panel"]}
-    />
+    <div className="space-y-6">
+      <Topbar
+        title="Vendors"
+        subtitle="Manage subcontractors and suppliers for the current organization."
+      />
+      <Card className="space-y-6 p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.25em] text-brand-700">Vendor Directory</p>
+            <h1 className="mt-2 font-serif text-4xl font-semibold text-ink">Current Vendors</h1>
+            <p className="mt-3 max-w-2xl text-sm text-slate-600">
+              Keep vendor contact details and trade information scoped to your workspace.
+            </p>
+          </div>
+          <ButtonLink href="/vendors/new">New Vendor</ButtonLink>
+        </div>
+        {vendors.length === 0 ? (
+          <div className="rounded-[1.75rem] border border-dashed border-slate-300 bg-sand/65 p-8 text-center">
+            <h2 className="font-serif text-2xl font-semibold text-ink">No vendors yet</h2>
+            <p className="mt-3 text-sm text-slate-600">
+              Add the first vendor for your current organization.
+            </p>
+            <div className="mt-5">
+              <ButtonLink href="/vendors/new" variant="secondary">
+                Create your first vendor
+              </ButtonLink>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {vendors.map((vendor) => (
+              <Card key={vendor.id} className="space-y-4 border border-slate-200 bg-white/80 p-5">
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <h2 className="font-serif text-2xl font-semibold text-ink">{vendor.name}</h2>
+                      {vendor.trade ? <Badge>{vendor.trade}</Badge> : null}
+                    </div>
+                    <div className="mt-3 space-y-1 text-sm text-slate-600">
+                      <p>{vendor.phone || "No phone added"}</p>
+                      <p>{vendor.email || "No email added"}</p>
+                    </div>
+                  </div>
+                  <ButtonLink href={`/vendors/${vendor.id}/edit`} variant="ghost">
+                    Edit
+                  </ButtonLink>
+                </div>
+                <div className="rounded-[1.5rem] bg-sand/70 p-4 text-sm text-slate-700">
+                  {vendor.notes || "No notes added yet."}
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
   );
 }
