@@ -9,26 +9,95 @@ type ProjectWithMetrics = Project & {
   variance?: number | null;
 };
 
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-");
+}
+
+function getDefaultOrganizationName(user: Awaited<ReturnType<typeof requireUser>>["user"]) {
+  const metadata = user.user_metadata as Record<string, unknown> | undefined;
+  const fullName =
+    typeof metadata?.full_name === "string"
+      ? metadata.full_name
+      : typeof metadata?.name === "string"
+        ? metadata.name
+        : null;
+  const emailPrefix = user.email?.split("@")[0]?.replace(/[._-]+/g, " ") ?? "My";
+  const baseName = fullName || emailPrefix;
+  const cleaned = baseName
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+
+  return cleaned ? `${cleaned} Workspace` : "My Workspace";
+}
+
+async function findCurrentOrganization(
+  supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
+  userId: string,
+) {
+  const { data, error } = await supabase
+    .from("organization_members")
+    .select("organization:organizations(id,name,slug)")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  const organization = Array.isArray(data?.organization) ? data.organization[0] : data?.organization;
+  return (organization as Organization | undefined) ?? null;
+}
+
+async function bootstrapOrganizationForUser(
+  supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
+  user: Awaited<ReturnType<typeof requireUser>>["user"],
+) {
+  const name = getDefaultOrganizationName(user);
+  const baseSlug = slugify(name) || "workspace";
+  const slug = `${baseSlug}-${user.id.slice(0, 8)}`;
+
+  const { error } = await supabase.from("organizations").insert({
+    name,
+    slug,
+    created_by: user.id,
+  });
+
+  if (error && error.code !== "23505") {
+    throw error;
+  }
+
+  const organization = await findCurrentOrganization(supabase, user.id);
+
+  if (!organization) {
+    throw new Error("Unable to bootstrap organization membership for this user.");
+  }
+
+  return organization;
+}
+
 export const getCurrentOrganization = cache(async (): Promise<{
   supabase: Awaited<ReturnType<typeof requireUser>>["supabase"];
   userId: string;
   organization: Organization;
 }> => {
   const { supabase, user } = await requireUser();
-  const { data, error } = await supabase
-    .from("organization_members")
-    .select("organization:organizations(id,name,slug)")
-    .eq("user_id", user.id)
-    .single();
+  let organization = await findCurrentOrganization(supabase, user.id);
 
-  if (error || !data?.organization) {
-    throw new Error("No organization membership found for this user.");
+  if (!organization) {
+    organization = await bootstrapOrganizationForUser(supabase, user);
   }
 
   return {
     supabase,
     userId: user.id,
-    organization: data.organization as unknown as Organization,
+    organization,
   };
 });
 
