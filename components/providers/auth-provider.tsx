@@ -1,19 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { createClient } from "@/lib/supabase/browser";
-
 export function AuthProvider() {
-  useEffect(() => {
-    const supabase = createClient();
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      // Session refresh is handled by middleware; subscribing keeps client auth state warm.
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
+  // Phase 1 uses a cookie-based placeholder auth flow and does not
+  // instantiate a real Supabase client in the browser.
   return null;
 }
