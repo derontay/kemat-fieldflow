@@ -17,7 +17,7 @@ export function PlaceholderPage({
       <Topbar title={title} subtitle={subtitle} />
       <Card className="overflow-hidden p-0">
         <div className="border-b border-slate-200/80 px-6 py-6">
-          <p className="text-xs uppercase tracking-[0.25em] text-brand-700">Phase 1 Placeholder</p>
+          <p className="text-xs uppercase tracking-[0.25em] text-brand-700">Placeholder Surface</p>
           <h1 className="mt-2 font-serif text-4xl font-semibold text-ink">{title}</h1>
           <p className="mt-3 max-w-2xl text-sm text-slate-600">{description}</p>
         </div>

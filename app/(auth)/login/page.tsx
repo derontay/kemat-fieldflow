@@ -19,12 +19,12 @@ export default async function LoginPage({
             Field-first project tracking for small builders and rehab teams.
           </h1>
           <p className="mt-6 max-w-lg text-sm text-slate-300">
-            Phase 1 includes the shell only: app navigation, auth screens, protected routes, and placeholder workspace pages.
+            Sign in with your Supabase account to access the protected workspace shell.
           </p>
         </section>
         <Card className="self-center p-8">
           <h2 className="font-serif text-3xl font-semibold">{APP_NAME}</h2>
-          <p className="mt-2 text-sm text-slate-600">Sign in to access the protected scaffold.</p>
+          <p className="mt-2 text-sm text-slate-600">Sign in to access the protected workspace.</p>
           {params.message ? (
             <p className="mt-4 rounded-2xl bg-brand-50 px-4 py-3 text-sm text-brand-700">{params.message}</p>
           ) : null}

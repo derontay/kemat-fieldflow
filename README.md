@@ -1,24 +1,23 @@
 # KeMAT FieldFlow
 
-Phase 1 scaffold for a field-operations web app built with Next.js App Router and Tailwind CSS.
+Phase 2 authentication scaffold for a field-operations web app built with Next.js App Router, Tailwind CSS, and Supabase Auth.
 
 ## Scope
 
-Included in Phase 1:
+Included in the current phase:
 
 - Next.js app scaffold
 - Tailwind setup
 - Global app shell
 - Protected layout with sidebar and top navigation
 - Placeholder pages for Dashboard, Projects, Tasks, Expenses, Vendors, and Settings
-- Placeholder auth pages for login, signup, and reset password
-- Cookie-based route protection for scaffold verification
+- Real Supabase Auth for login, signup, logout, and password reset
+- Supabase-backed protected route handling
 - `.env.example`
 
-Explicitly not included in Phase 1:
+Explicitly not included yet:
 
 - Database schema
-- Supabase data model integration
 - Stripe billing integration
 - CRUD flows
 - Business logic
@@ -45,7 +44,7 @@ npm run dev
 
 4. Open `http://localhost:3000`.
 
-Use the placeholder login or signup screens to enter the protected app shell. In Phase 1, auth is scaffold-only and sets a local cookie instead of talking to a backend.
+Set Supabase values in `.env.local` before running the app. Authentication now uses real Supabase Auth and protects the existing app shell routes.
 
 ## Routes
 
@@ -61,5 +60,4 @@ Use the placeholder login or signup screens to enter the protected app shell. In
 
 ## Notes
 
-- Supabase helper files and Stripe placeholders remain in the repository for later phases, but they are not wired into the Phase 1 scaffold.
-- Phase 2 should replace the cookie-based auth placeholder with real auth, data access, schema, and billing logic.
+- This phase only covers authentication. Database schema, CRUD flows, dashboard data, and Stripe are still deferred.

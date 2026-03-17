@@ -10,15 +10,15 @@ export default function SignupPage() {
         <section className="rounded-[2.5rem] bg-ink p-8 text-white shadow-panel md:p-12">
           <p className="text-sm uppercase tracking-[0.25em] text-brand-200">KeMAT FieldFlow</p>
           <h1 className="mt-6 max-w-xl font-serif text-5xl font-semibold leading-tight">
-            Stand up the workspace now. Wire in real authentication in Phase 2.
+            Create your account and move into the protected workspace shell.
           </h1>
           <p className="mt-6 max-w-lg text-sm text-slate-300">
-            This Phase 1 scaffold includes protected routes, navigation, and placeholder pages so the product shell is ready for backend integration.
+            Authentication is now handled by Supabase Auth while the app shell remains intentionally data-light.
           </p>
         </section>
         <Card className="self-center p-8">
           <h2 className="font-serif text-3xl font-semibold">{APP_NAME}</h2>
-          <p className="mt-2 text-sm text-slate-600">Create a placeholder account to enter the scaffold.</p>
+          <p className="mt-2 text-sm text-slate-600">Create an account with email and password.</p>
           <form action={authAction} className="mt-6 space-y-4">
             <input type="hidden" name="mode" value="signup" />
             <Field label="Full name">

@@ -1,32 +1,10 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
+import { updateSession } from "@/lib/supabase/middleware";
 
-const AUTH_ROUTES = ["/login", "/signup", "/reset-password"];
-
-export function middleware(request: NextRequest) {
-  const pathname = request.nextUrl.pathname;
-  const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
-  const isStaticAsset =
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon.ico") ||
-    pathname.includes(".");
-
-  if (isStaticAsset) {
-    return NextResponse.next();
-  }
-
-  const hasSession = request.cookies.get("ff_phase1_session")?.value === "active";
-
-  if (!hasSession && !isAuthRoute && pathname !== "/") {
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
-
-  if (hasSession && isAuthRoute) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
-
-  return NextResponse.next();
+export async function middleware(request: NextRequest) {
+  return updateSession(request);
 }
 
 export const config = {
-  matcher: ["/((?!api).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
