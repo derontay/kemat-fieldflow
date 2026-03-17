@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Topbar } from "@/components/layout/topbar";
-import { ButtonLink, Card, Badge } from "@/components/ui";
+import { Badge, ButtonLink, Card, EmptyState } from "@/components/ui";
 import { getProjects } from "@/lib/data";
 import { currency, formatDate } from "@/lib/utils";
 
@@ -35,17 +35,15 @@ export default async function ProjectsPage() {
           <ButtonLink href="/projects/new">New Project</ButtonLink>
         </div>
         {projects.length === 0 ? (
-          <div className="rounded-[1.75rem] border border-dashed border-slate-300 bg-sand/65 p-8 text-center">
-            <h2 className="font-serif text-2xl font-semibold text-ink">No projects yet</h2>
-            <p className="mt-3 text-sm text-slate-600">
-              Start by creating the first project for your organization.
-            </p>
-            <div className="mt-5">
+          <EmptyState
+            title="No projects yet"
+            description="Start by creating the first project for your organization."
+            action={
               <ButtonLink href="/projects/new" variant="secondary">
                 Create your first project
               </ButtonLink>
-            </div>
-          </div>
+            }
+          />
         ) : (
           <div className="space-y-4">
             {projects.map((project) => (

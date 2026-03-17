@@ -1,6 +1,7 @@
 import { Topbar } from "@/components/layout/topbar";
 import { ExpenseForm } from "@/components/expenses/expense-form";
-import { Button, ButtonLink, Card } from "@/components/ui";
+import { ConfirmButton } from "@/components/confirm-button";
+import { ButtonLink, Card } from "@/components/ui";
 import { deleteExpenseAction, updateExpenseAction } from "@/lib/actions/crud";
 import { getExpenseDetail, getProjects, getVendors } from "@/lib/data";
 
@@ -32,9 +33,9 @@ export default async function EditExpensePage({
           <form action={deleteExpenseAction}>
             <input type="hidden" name="expense_id" value={expense.id} />
             <input type="hidden" name="project_id" value={expense.project_id} />
-            <Button type="submit" variant="danger">
+            <ConfirmButton message="Delete this expense?">
               Delete Expense
-            </Button>
+            </ConfirmButton>
           </form>
         </Card>
       </div>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Topbar } from "@/components/layout/topbar";
-import { Badge, Button, ButtonLink, Card } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, EmptyState } from "@/components/ui";
 import { updateTaskStatusAction } from "@/lib/actions/crud";
 import { getTasks } from "@/lib/data";
 import { formatDate, isOverdue } from "@/lib/utils";
@@ -58,17 +58,15 @@ export default async function TasksPage() {
           <ButtonLink href="/tasks/new">New Task</ButtonLink>
         </div>
         {tasks.length === 0 ? (
-          <div className="rounded-[1.75rem] border border-dashed border-slate-300 bg-sand/65 p-8 text-center">
-            <h2 className="font-serif text-2xl font-semibold text-ink">No tasks yet</h2>
-            <p className="mt-3 text-sm text-slate-600">
-              Add the first task for one of your projects.
-            </p>
-            <div className="mt-5">
+          <EmptyState
+            title="No tasks yet"
+            description="Add the first task for one of your projects."
+            action={
               <ButtonLink href="/tasks/new" variant="secondary">
                 Create your first task
               </ButtonLink>
-            </div>
-          </div>
+            }
+          />
         ) : (
           <div className="space-y-4">
             {tasks.map((task) => (

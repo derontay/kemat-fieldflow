@@ -1,6 +1,7 @@
 import { Topbar } from "@/components/layout/topbar";
 import { VendorForm } from "@/components/vendors/vendor-form";
-import { Button, ButtonLink, Card } from "@/components/ui";
+import { ConfirmButton } from "@/components/confirm-button";
+import { ButtonLink, Card } from "@/components/ui";
 import { deleteVendorAction, updateVendorAction } from "@/lib/actions/crud";
 import { getVendorDetail } from "@/lib/data";
 
@@ -22,9 +23,9 @@ export default async function EditVendorPage({
         <Card className="p-2">
           <form action={deleteVendorAction}>
             <input type="hidden" name="vendor_id" value={vendor.id} />
-            <Button type="submit" variant="danger">
+            <ConfirmButton message="Delete this vendor?">
               Delete Vendor
-            </Button>
+            </ConfirmButton>
           </form>
         </Card>
       </div>

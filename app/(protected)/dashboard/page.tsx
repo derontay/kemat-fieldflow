@@ -1,5 +1,5 @@
 import { Topbar } from "@/components/layout/topbar";
-import { Badge, ButtonLink, Card, StatCard } from "@/components/ui";
+import { Badge, ButtonLink, Card, EmptyState, StatCard } from "@/components/ui";
 import { getDashboardData } from "@/lib/data";
 import { currency, formatDate, formatDateTime } from "@/lib/utils";
 
@@ -57,9 +57,15 @@ export default async function DashboardPage() {
             </ButtonLink>
           </div>
           {openTasks.length === 0 ? (
-            <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-sand/65 p-5 text-sm text-slate-600">
-              No open tasks right now.
-            </div>
+            <EmptyState
+              title="No open tasks"
+              description="Everything is clear right now."
+              action={
+                <ButtonLink href="/tasks/new" variant="secondary">
+                  Create a task
+                </ButtonLink>
+              }
+            />
           ) : (
             <div className="space-y-4">
               {openTasks.slice(0, 6).map((task) => (
@@ -90,9 +96,15 @@ export default async function DashboardPage() {
             </ButtonLink>
           </div>
           {recentUpdates.length === 0 ? (
-            <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-sand/65 p-5 text-sm text-slate-600">
-              No recent field updates yet.
-            </div>
+            <EmptyState
+              title="No recent field updates"
+              description="Post a project update to start the activity feed."
+              action={
+                <ButtonLink href="/projects" variant="secondary">
+                  Open projects
+                </ButtonLink>
+              }
+            />
           ) : (
             <div className="space-y-4">
               {recentUpdates.map((update) => (
@@ -110,7 +122,7 @@ export default async function DashboardPage() {
                         {update.created_by === dashboard.currentUserId
                           ? "You"
                           : update.created_by
-                            ? "Team member"
+                            ? "Workspace member"
                             : "Unknown user"}
                       </p>
                     </div>

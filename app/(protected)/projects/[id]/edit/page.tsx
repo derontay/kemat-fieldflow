@@ -1,6 +1,7 @@
 import { Topbar } from "@/components/layout/topbar";
 import { ProjectForm } from "@/components/projects/project-form";
-import { Button, ButtonLink, Card } from "@/components/ui";
+import { ConfirmButton } from "@/components/confirm-button";
+import { ButtonLink, Card } from "@/components/ui";
 import { deleteProjectAction, updateProjectAction } from "@/lib/actions/crud";
 import { getProjectDetail } from "@/lib/data";
 
@@ -27,9 +28,9 @@ export default async function EditProjectPage({
         <Card className="p-2">
           <form action={deleteProjectAction}>
             <input type="hidden" name="project_id" value={project.id} />
-            <Button type="submit" variant="danger">
+            <ConfirmButton message="Delete this project? This cannot be undone.">
               Delete Project
-            </Button>
+            </ConfirmButton>
           </form>
         </Card>
       </div>

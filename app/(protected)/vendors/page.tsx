@@ -1,5 +1,5 @@
 import { Topbar } from "@/components/layout/topbar";
-import { ButtonLink, Card, Badge } from "@/components/ui";
+import { Badge, ButtonLink, Card, EmptyState } from "@/components/ui";
 import { getVendors } from "@/lib/data";
 
 export default async function VendorsPage() {
@@ -23,17 +23,15 @@ export default async function VendorsPage() {
           <ButtonLink href="/vendors/new">New Vendor</ButtonLink>
         </div>
         {vendors.length === 0 ? (
-          <div className="rounded-[1.75rem] border border-dashed border-slate-300 bg-sand/65 p-8 text-center">
-            <h2 className="font-serif text-2xl font-semibold text-ink">No vendors yet</h2>
-            <p className="mt-3 text-sm text-slate-600">
-              Add the first vendor for your current organization.
-            </p>
-            <div className="mt-5">
+          <EmptyState
+            title="No vendors yet"
+            description="Add the first vendor for your current organization."
+            action={
               <ButtonLink href="/vendors/new" variant="secondary">
                 Create your first vendor
               </ButtonLink>
-            </div>
-          </div>
+            }
+          />
         ) : (
           <div className="space-y-4">
             {vendors.map((vendor) => (

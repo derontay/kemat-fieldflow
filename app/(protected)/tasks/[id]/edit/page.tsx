@@ -1,6 +1,7 @@
 import { Topbar } from "@/components/layout/topbar";
 import { TaskForm } from "@/components/tasks/task-form";
-import { Button, ButtonLink, Card } from "@/components/ui";
+import { ConfirmButton } from "@/components/confirm-button";
+import { ButtonLink, Card } from "@/components/ui";
 import { deleteTaskAction, updateTaskAction } from "@/lib/actions/crud";
 import { getCurrentOrganization, getProjects, getTaskDetail } from "@/lib/data";
 
@@ -32,9 +33,9 @@ export default async function EditTaskPage({
           <form action={deleteTaskAction}>
             <input type="hidden" name="task_id" value={task.id} />
             <input type="hidden" name="project_id" value={task.project_id} />
-            <Button type="submit" variant="danger">
+            <ConfirmButton message="Delete this task?">
               Delete Task
-            </Button>
+            </ConfirmButton>
           </form>
         </Card>
       </div>

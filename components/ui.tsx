@@ -183,3 +183,21 @@ export function Field({
     </label>
   );
 }
+
+export function EmptyState({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-[1.75rem] border border-dashed border-slate-300 bg-sand/65 p-8 text-center">
+      <h2 className="font-serif text-2xl font-semibold text-ink">{title}</h2>
+      <p className="mt-3 text-sm text-slate-600">{description}</p>
+      {action ? <div className="mt-5">{action}</div> : null}
+    </div>
+  );
+}

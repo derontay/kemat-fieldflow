@@ -1,6 +1,7 @@
 import { FieldUpdateForm } from "@/components/projects/field-update-form";
+import { ConfirmButton } from "@/components/confirm-button";
 import { Topbar } from "@/components/layout/topbar";
-import { Badge, Button, ButtonLink, Card } from "@/components/ui";
+import { Badge, ButtonLink, Card, EmptyState } from "@/components/ui";
 import { createFieldUpdateAction, deleteFieldUpdateAction } from "@/lib/actions/crud";
 import { getProjectActivity, getProjectDetail } from "@/lib/data";
 import { currency, formatDate, formatDateTime } from "@/lib/utils";
@@ -78,9 +79,10 @@ export default async function ProjectDetailPage({
             </p>
           </div>
           {activity.updates.length === 0 ? (
-            <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-sand/65 p-6 text-sm text-slate-600">
-              No field updates yet. Post the first update for this project.
-            </div>
+            <EmptyState
+              title="No field updates yet"
+              description="Post the first update for this project using the form on the left."
+            />
           ) : (
             <div className="space-y-5">
               {activity.updates.map((update) => (
@@ -101,16 +103,16 @@ export default async function ProjectDetailPage({
                             {update.created_by === activity.currentUserId
                               ? "You"
                               : update.created_by
-                                ? "Team member"
+                                ? "Workspace member"
                                 : "Unknown user"}
                           </p>
                         </div>
                         <form action={deleteFieldUpdateAction}>
                           <input type="hidden" name="update_id" value={update.id} />
                           <input type="hidden" name="project_id" value={project.id} />
-                          <Button type="submit" variant="ghost">
+                          <ConfirmButton message="Delete this field update?" variant="ghost">
                             Delete
-                          </Button>
+                          </ConfirmButton>
                         </form>
                       </div>
                     </div>
