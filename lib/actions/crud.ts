@@ -169,21 +169,35 @@ export async function deleteTaskAction(formData: FormData) {
 export async function createFieldUpdateAction(formData: FormData) {
   const { supabase, organization, userId } = await getCurrentOrganization();
   const projectId = String(formData.get("project_id"));
-  const photoPaths = String(formData.get("photo_paths") || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  await supabase.from("field_updates").insert({
+  const { error } = await supabase.from("field_updates").insert({
     organization_id: organization.id,
     project_id: projectId,
-    author_id: userId,
-    note_text: formData.get("note_text"),
-    percent_complete: formData.get("percent_complete") ? Number(formData.get("percent_complete")) : null,
-    photo_paths: photoPaths,
+    created_by: userId,
+    title: formData.get("title"),
+    description: formData.get("description") || null,
   });
 
-  revalidatePath("/dashboard");
+  if (error) {
+    throw error;
+  }
+
+  revalidatePath(`/projects/${projectId}`);
+}
+
+export async function deleteFieldUpdateAction(formData: FormData) {
+  const { supabase, organization } = await getCurrentOrganization();
+  const updateId = String(formData.get("update_id"));
+  const projectId = String(formData.get("project_id"));
+  const { error } = await supabase
+    .from("field_updates")
+    .delete()
+    .eq("organization_id", organization.id)
+    .eq("id", updateId);
+
+  if (error) {
+    throw error;
+  }
+
   revalidatePath(`/projects/${projectId}`);
 }
 

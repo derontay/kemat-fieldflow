@@ -1,7 +1,9 @@
+import { FieldUpdateForm } from "@/components/projects/field-update-form";
 import { Topbar } from "@/components/layout/topbar";
-import { ButtonLink, Card, Badge } from "@/components/ui";
-import { getProjectDetail } from "@/lib/data";
-import { currency, formatDate } from "@/lib/utils";
+import { Badge, Button, ButtonLink, Card } from "@/components/ui";
+import { createFieldUpdateAction, deleteFieldUpdateAction } from "@/lib/actions/crud";
+import { getProjectActivity, getProjectDetail } from "@/lib/data";
+import { currency, formatDate, formatDateTime } from "@/lib/utils";
 
 function statusTone(status: string): "default" | "success" | "warning" {
   if (status === "active") return "success";
@@ -19,7 +21,7 @@ export default async function ProjectDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const project = await getProjectDetail(id);
+  const [project, activity] = await Promise.all([getProjectDetail(id), getProjectActivity(id)]);
 
   return (
     <div className="space-y-6">
@@ -62,6 +64,63 @@ export default async function ProjectDetailPage({
           </div>
         </div>
       </Card>
+      <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+        <div className="space-y-3">
+          <p className="text-xs uppercase tracking-[0.25em] text-brand-700">New Activity</p>
+          <FieldUpdateForm projectId={project.id} action={createFieldUpdateAction} />
+        </div>
+        <Card className="space-y-6 p-6">
+          <div>
+            <p className="text-xs uppercase tracking-[0.25em] text-brand-700">Project Activity</p>
+            <h2 className="mt-2 font-serif text-3xl font-semibold text-ink">Field Updates</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Most recent project activity appears first.
+            </p>
+          </div>
+          {activity.updates.length === 0 ? (
+            <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-sand/65 p-6 text-sm text-slate-600">
+              No field updates yet. Post the first update for this project.
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {activity.updates.map((update) => (
+                <div key={update.id} className="relative border-l border-slate-300 pl-6">
+                  <div className="absolute -left-[7px] top-2 h-3 w-3 rounded-full bg-brand-600" />
+                  <div className="rounded-[1.5rem] border border-slate-200 bg-white/85 p-5">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <h3 className="font-serif text-2xl font-semibold text-ink">{update.title}</h3>
+                        <p className="mt-2 text-sm text-slate-700">
+                          {update.description || "No description added."}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-start gap-3 md:items-end">
+                        <div className="text-sm text-slate-500">
+                          <p>{formatDateTime(update.created_at)}</p>
+                          <p className="mt-1">
+                            {update.created_by === activity.currentUserId
+                              ? "You"
+                              : update.created_by
+                                ? "Team member"
+                                : "Unknown user"}
+                          </p>
+                        </div>
+                        <form action={deleteFieldUpdateAction}>
+                          <input type="hidden" name="update_id" value={update.id} />
+                          <input type="hidden" name="project_id" value={project.id} />
+                          <Button type="submit" variant="ghost">
+                            Delete
+                          </Button>
+                        </form>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
     </div>
   );
 }

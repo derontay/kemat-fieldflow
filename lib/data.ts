@@ -199,6 +199,25 @@ export async function getProjectDetail(projectId: string) {
   return data as Project;
 }
 
+export async function getProjectActivity(projectId: string) {
+  const { supabase, organization, userId } = await getCurrentOrganization();
+  const { data, error } = await supabase
+    .from("field_updates")
+    .select("id, project_id, organization_id, created_by, title, description, created_at")
+    .eq("organization_id", organization.id)
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return {
+    currentUserId: userId,
+    updates: (data ?? []) as FieldUpdate[],
+  };
+}
+
 export async function getTasks() {
   const { supabase, organization } = await getCurrentOrganization();
   const { data, error } = await supabase

@@ -39,10 +39,9 @@ export interface FieldUpdate {
   id: string;
   organization_id: string;
   project_id: string;
-  author_id: string | null;
-  note_text: string;
-  percent_complete: number | null;
-  photo_paths: string[];
+  created_by: string | null;
+  title: string;
+  description: string | null;
   created_at: string;
 }
 
