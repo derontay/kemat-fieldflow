@@ -26,7 +26,7 @@ export function PlaceholderPage({
             <div key={item} className="rounded-[1.5rem] border border-dashed border-slate-300 bg-sand/65 p-5">
               <p className="text-sm font-medium text-ink">{item}</p>
               <p className="mt-2 text-sm text-slate-600">
-                Reserved for Phase 2 implementation once data models and workflows are approved.
+                Reserved for a later phase once the remaining workflows are approved.
               </p>
             </div>
           ))}

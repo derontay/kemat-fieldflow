@@ -1,3 +1,4 @@
+// Deferred for a later billing phase. The current app does not use Stripe at runtime.
 import Stripe from "stripe";
 
 export const stripe = process.env.STRIPE_SECRET_KEY

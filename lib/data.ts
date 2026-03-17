@@ -1,6 +1,5 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
-import { addDays } from "date-fns";
 import { requireUser } from "@/lib/auth";
 import { type Expense, type FieldUpdate, type Organization, type Project, type Task, type Vendor } from "@/types/database";
 
@@ -307,14 +306,4 @@ export async function getVendorDetail(vendorId: string) {
   if (!data) notFound();
 
   return data as Vendor;
-}
-
-export async function getBillingState() {
-  const { supabase, organization } = await getCurrentOrganization();
-  const { data } = await supabase
-    .from("subscriptions")
-    .select("*")
-    .eq("organization_id", organization.id)
-    .maybeSingle();
-  return data;
 }

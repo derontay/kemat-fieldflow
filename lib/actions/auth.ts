@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { env } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
 export async function authAction(formData: FormData) {
@@ -9,18 +10,13 @@ export async function authAction(formData: FormData) {
   const email = String(formData.get("email") || "").trim();
   const password = String(formData.get("password") || "");
   const name = String(formData.get("name") || "").trim();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-
-  if (!appUrl) {
-    redirect("/login?message=NEXT_PUBLIC_APP_URL%20is%20not%20configured.");
-  }
 
   if (mode === "signup") {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${appUrl}/auth/callback`,
+        emailRedirectTo: `${env.appUrl}/auth/callback`,
         data: name ? { full_name: name } : undefined,
       },
     });
@@ -38,7 +34,7 @@ export async function authAction(formData: FormData) {
 
   if (mode === "reset-password") {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent("/reset-password?mode=update")}`,
+      redirectTo: `${env.appUrl}/auth/callback?next=${encodeURIComponent("/reset-password?mode=update")}`,
     });
 
     if (error) {
