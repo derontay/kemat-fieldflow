@@ -10,27 +10,35 @@ function numberValue(value: FormDataEntryValue | null) {
 
 export async function createProjectAction(formData: FormData) {
   const { supabase, organization } = await getCurrentOrganization();
-  await supabase.from("projects").insert({
-    organization_id: organization.id,
-    name: formData.get("name"),
-    address: formData.get("address"),
-    status: formData.get("status"),
-    start_date: formData.get("start_date") || null,
-    target_completion_date: formData.get("target_completion_date") || null,
-    planned_budget: numberValue(formData.get("planned_budget")),
-    actual_spend: numberValue(formData.get("actual_spend")),
-    notes: formData.get("notes"),
-  });
+  const { data, error } = await supabase
+    .from("projects")
+    .insert({
+      organization_id: organization.id,
+      name: formData.get("name"),
+      address: formData.get("address"),
+      status: formData.get("status"),
+      start_date: formData.get("start_date") || null,
+      target_completion_date: formData.get("target_completion_date") || null,
+      planned_budget: numberValue(formData.get("planned_budget")),
+      actual_spend: numberValue(formData.get("actual_spend")),
+      notes: formData.get("notes"),
+    })
+    .select("id")
+    .single();
 
-  revalidatePath("/dashboard");
+  if (error) {
+    throw error;
+  }
+
   revalidatePath("/projects");
-  redirect("/projects");
+  revalidatePath(`/projects/${data.id}`);
+  redirect(`/projects/${data.id}`);
 }
 
 export async function updateProjectAction(formData: FormData) {
   const { supabase, organization } = await getCurrentOrganization();
   const projectId = String(formData.get("project_id"));
-  await supabase
+  const { error } = await supabase
     .from("projects")
     .update({
       name: formData.get("name"),
@@ -45,16 +53,25 @@ export async function updateProjectAction(formData: FormData) {
     .eq("organization_id", organization.id)
     .eq("id", projectId);
 
+  if (error) {
+    throw error;
+  }
+
   revalidatePath(`/projects/${projectId}`);
+  revalidatePath(`/projects/${projectId}/edit`);
   revalidatePath("/projects");
-  revalidatePath("/dashboard");
+  redirect(`/projects/${projectId}`);
 }
 
 export async function deleteProjectAction(formData: FormData) {
   const { supabase, organization } = await getCurrentOrganization();
   const projectId = String(formData.get("project_id"));
-  await supabase.from("projects").delete().eq("organization_id", organization.id).eq("id", projectId);
-  revalidatePath("/dashboard");
+  const { error } = await supabase.from("projects").delete().eq("organization_id", organization.id).eq("id", projectId);
+
+  if (error) {
+    throw error;
+  }
+
   revalidatePath("/projects");
   redirect("/projects");
 }

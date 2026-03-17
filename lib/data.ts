@@ -4,11 +4,6 @@ import { addDays } from "date-fns";
 import { requireUser } from "@/lib/auth";
 import { type Expense, type FieldUpdate, type Organization, type Project, type Task, type Vendor } from "@/types/database";
 
-type ProjectWithMetrics = Project & {
-  total_expenses?: number | null;
-  variance?: number | null;
-};
-
 function slugify(value: string) {
   return value
     .toLowerCase()
@@ -173,85 +168,35 @@ export async function getDashboardData() {
 
 export async function getProjects() {
   const { supabase, organization } = await getCurrentOrganization();
-  const [{ data: projects }, { data: expenses }] = await Promise.all([
-    supabase
-      .from("projects")
-      .select("*")
-      .eq("organization_id", organization.id)
-      .order("created_at", { ascending: false }),
-    supabase.from("expenses").select("project_id, amount").eq("organization_id", organization.id),
-  ]);
+  const { data, error } = await supabase
+    .from("projects")
+    .select("*")
+    .eq("organization_id", organization.id)
+    .order("created_at", { ascending: false });
 
-  const expenseTotals = new Map<string, number>();
-  (expenses ?? []).forEach((expense) => {
-    expenseTotals.set(expense.project_id, (expenseTotals.get(expense.project_id) ?? 0) + Number(expense.amount));
-  });
+  if (error) {
+    throw error;
+  }
 
-  return (projects ?? []).map((project) => {
-    const totalExpenses = expenseTotals.get(project.id) ?? Number(project.actual_spend ?? 0);
-    return {
-      ...project,
-      total_expenses: totalExpenses,
-      variance: Number(project.planned_budget) - totalExpenses,
-    } as ProjectWithMetrics;
-  });
+  return (data ?? []) as Project[];
 }
 
 export async function getProjectDetail(projectId: string) {
   const { supabase, organization } = await getCurrentOrganization();
-  const [
-    { data: project },
-    { data: tasks },
-    { data: updates },
-    { data: expenses },
-    { data: vendors },
-  ] = await Promise.all([
-    supabase
-      .from("projects")
-      .select("*")
-      .eq("organization_id", organization.id)
-      .eq("id", projectId)
-      .single(),
-    supabase
-      .from("tasks")
-      .select("*")
-      .eq("organization_id", organization.id)
-      .eq("project_id", projectId)
-      .order("due_date", { ascending: true }),
-    supabase
-      .from("field_updates")
-      .select("*")
-      .eq("organization_id", organization.id)
-      .eq("project_id", projectId)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("expenses")
-      .select("*, vendor:vendors(name)")
-      .eq("organization_id", organization.id)
-      .eq("project_id", projectId)
-      .order("expense_date", { ascending: false }),
-    supabase
-      .from("vendors")
-      .select("*")
-      .eq("organization_id", organization.id)
-      .order("name"),
-  ]);
+  const { data, error } = await supabase
+    .from("projects")
+    .select("*")
+    .eq("organization_id", organization.id)
+    .eq("id", projectId)
+    .maybeSingle();
 
-  if (!project) notFound();
+  if (error) {
+    throw error;
+  }
 
-  const totalExpenses = (expenses ?? []).reduce((sum, item) => sum + Number(item.amount), 0);
+  if (!data) notFound();
 
-  return {
-    project: {
-      ...project,
-      total_expenses: totalExpenses,
-      variance: Number(project.planned_budget) - totalExpenses,
-    },
-    tasks: (tasks ?? []) as Task[],
-    updates: (updates ?? []) as FieldUpdate[],
-    expenses: (expenses ?? []) as (Expense & { vendor?: { name: string } | null })[],
-    vendors: (vendors ?? []) as Vendor[],
-  };
+  return data as Project;
 }
 
 export async function getTasks() {
