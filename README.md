@@ -29,7 +29,7 @@ Deferred:
 - Stripe
 - Billing
 - Analytics/export reporting
-- Settings implementation beyond placeholder UI
+- Advanced settings write flows
 
 ## Required Environment Variables
 
@@ -80,6 +80,20 @@ npm run dev
 ```
 
 5. Open `http://localhost:3000`.
+
+## Checks
+
+Run the current automated checks locally:
+
+```bash
+npm run typecheck
+npm run test
+```
+
+The current automated tests are intentionally lightweight and focus on utility/env helper behavior. Use the docs below for launch verification:
+
+- `docs/launch-readiness.md`
+- `docs/manual-smoke-checklist.md`
 
 ## Supabase Setup
 
@@ -133,11 +147,12 @@ NEXT_PUBLIC_APP_URL=https://kemat-fieldflow.vercel.app
 These should be considered before treating the app as fully production-hardened:
 
 - No automated test suite yet
+- Only lightweight utility/env tests are in place
 - No end-to-end deployment validation yet
 - No role-based UI restrictions beyond organization-scoped access
 - No analytics, exports, or audit logging
 - No billing flows
-- Settings page is still placeholder-only
+- Advanced settings write flows are still not implemented
 
 ## Routes
 

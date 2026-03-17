@@ -1,9 +1,10 @@
 import { Topbar } from "@/components/layout/topbar";
 import { Badge, ButtonLink, Card, EmptyState } from "@/components/ui";
-import { getVendors } from "@/lib/data";
+import { getVendorIntelligence } from "@/lib/data";
+import { currency, formatDate } from "@/lib/utils";
 
 export default async function VendorsPage() {
-  const vendors = await getVendors();
+  const vendors = await getVendorIntelligence();
 
   return (
     <div className="space-y-6">
@@ -50,6 +51,24 @@ export default async function VendorsPage() {
                   <ButtonLink href={`/vendors/${vendor.id}/edit`} variant="ghost">
                     Edit
                   </ButtonLink>
+                </div>
+                <div className="grid gap-3 border-t border-slate-200 pt-4 text-sm text-slate-600 md:grid-cols-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Linked expenses</p>
+                    <p className="mt-1 font-medium text-ink">{vendor.totalLinkedExpenses}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Total spend</p>
+                    <p className="mt-1 font-medium text-ink">{currency(vendor.totalSpend)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Projects worked on</p>
+                    <p className="mt-1 font-medium text-ink">{vendor.projectCount}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Last expense</p>
+                    <p className="mt-1 font-medium text-ink">{formatDate(vendor.lastExpenseDate)}</p>
+                  </div>
                 </div>
                 <div className="rounded-[1.5rem] bg-sand/70 p-4 text-sm text-slate-700">
                   {vendor.notes || "No notes added yet."}

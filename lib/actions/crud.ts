@@ -4,8 +4,41 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentOrganization } from "@/lib/data";
 
+function textValue(value: FormDataEntryValue | null) {
+  const normalized = String(value ?? "").trim();
+  return normalized || null;
+}
+
+function requiredTextValue(value: FormDataEntryValue | null, fieldName: string) {
+  const normalized = textValue(value);
+
+  if (!normalized) {
+    throw new Error(`${fieldName} is required.`);
+  }
+
+  return normalized;
+}
+
 function numberValue(value: FormDataEntryValue | null) {
-  return value ? Number(value) : 0;
+  if (!value || String(value).trim() === "") return 0;
+
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error("Numeric fields must contain a valid non-negative number.");
+  }
+
+  return parsed;
+}
+
+function requiredId(value: FormDataEntryValue | null, fieldName: string) {
+  const normalized = textValue(value);
+
+  if (!normalized) {
+    throw new Error(`${fieldName} is required.`);
+  }
+
+  return normalized;
 }
 
 export async function createProjectAction(formData: FormData) {
@@ -14,19 +47,23 @@ export async function createProjectAction(formData: FormData) {
     .from("projects")
     .insert({
       organization_id: organization.id,
-      name: formData.get("name"),
-      address: formData.get("address"),
-      status: formData.get("status"),
-      start_date: formData.get("start_date") || null,
-      target_completion_date: formData.get("target_completion_date") || null,
+      name: requiredTextValue(formData.get("name"), "Project name"),
+      address: textValue(formData.get("address")),
+      status: requiredTextValue(formData.get("status"), "Project status"),
+      start_date: textValue(formData.get("start_date")),
+      target_completion_date: textValue(formData.get("target_completion_date")),
       planned_budget: numberValue(formData.get("planned_budget")),
       actual_spend: numberValue(formData.get("actual_spend")),
-      notes: formData.get("notes"),
+      notes: textValue(formData.get("notes")),
     })
     .select("id")
     .single();
 
-  if (error) {
+  if (error || !data?.id) {
+    if (!error) {
+      throw new Error("Project could not be created.");
+    }
+
     throw error;
   }
 
@@ -37,24 +74,30 @@ export async function createProjectAction(formData: FormData) {
 
 export async function updateProjectAction(formData: FormData) {
   const { supabase, organization } = await getCurrentOrganization();
-  const projectId = String(formData.get("project_id"));
-  const { error } = await supabase
+  const projectId = requiredId(formData.get("project_id"), "Project");
+  const { data, error } = await supabase
     .from("projects")
     .update({
-      name: formData.get("name"),
-      address: formData.get("address"),
-      status: formData.get("status"),
-      start_date: formData.get("start_date") || null,
-      target_completion_date: formData.get("target_completion_date") || null,
+      name: requiredTextValue(formData.get("name"), "Project name"),
+      address: textValue(formData.get("address")),
+      status: requiredTextValue(formData.get("status"), "Project status"),
+      start_date: textValue(formData.get("start_date")),
+      target_completion_date: textValue(formData.get("target_completion_date")),
       planned_budget: numberValue(formData.get("planned_budget")),
       actual_spend: numberValue(formData.get("actual_spend")),
-      notes: formData.get("notes"),
+      notes: textValue(formData.get("notes")),
     })
     .eq("organization_id", organization.id)
-    .eq("id", projectId);
+    .eq("id", projectId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     throw error;
+  }
+
+  if (!data?.id) {
+    throw new Error("Project not found or not accessible.");
   }
 
   revalidatePath(`/projects/${projectId}`);
@@ -65,11 +108,21 @@ export async function updateProjectAction(formData: FormData) {
 
 export async function deleteProjectAction(formData: FormData) {
   const { supabase, organization } = await getCurrentOrganization();
-  const projectId = String(formData.get("project_id"));
-  const { error } = await supabase.from("projects").delete().eq("organization_id", organization.id).eq("id", projectId);
+  const projectId = requiredId(formData.get("project_id"), "Project");
+  const { data, error } = await supabase
+    .from("projects")
+    .delete()
+    .eq("organization_id", organization.id)
+    .eq("id", projectId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     throw error;
+  }
+
+  if (!data?.id) {
+    throw new Error("Project not found or already removed.");
   }
 
   revalidatePath("/projects");
@@ -78,23 +131,27 @@ export async function deleteProjectAction(formData: FormData) {
 
 export async function createTaskAction(formData: FormData) {
   const { supabase, organization, userId } = await getCurrentOrganization();
-  const projectId = String(formData.get("project_id"));
+  const projectId = requiredId(formData.get("project_id"), "Project");
   const { data, error } = await supabase
     .from("tasks")
     .insert({
       organization_id: organization.id,
       project_id: projectId,
-      assignee_id: formData.get("assignee_id") || userId,
-      title: formData.get("title"),
-      description: formData.get("description"),
-      due_date: formData.get("due_date") || null,
-      priority: formData.get("priority"),
-      status: formData.get("status"),
+      assignee_id: textValue(formData.get("assignee_id")) || userId,
+      title: requiredTextValue(formData.get("title"), "Task title"),
+      description: textValue(formData.get("description")),
+      due_date: textValue(formData.get("due_date")),
+      priority: requiredTextValue(formData.get("priority"), "Task priority"),
+      status: requiredTextValue(formData.get("status"), "Task status"),
     })
     .select("id, project_id")
     .single();
 
-  if (error) {
+  if (error || !data?.id || !data?.project_id) {
+    if (!error) {
+      throw new Error("Task could not be created.");
+    }
+
     throw error;
   }
 
@@ -106,24 +163,30 @@ export async function createTaskAction(formData: FormData) {
 
 export async function updateTaskAction(formData: FormData) {
   const { supabase, organization, userId } = await getCurrentOrganization();
-  const taskId = String(formData.get("task_id"));
-  const projectId = String(formData.get("project_id"));
-  const { error } = await supabase
+  const taskId = requiredId(formData.get("task_id"), "Task");
+  const projectId = requiredId(formData.get("project_id"), "Project");
+  const { data, error } = await supabase
     .from("tasks")
     .update({
       project_id: projectId,
-      assignee_id: formData.get("assignee_id") || userId,
-      title: formData.get("title"),
-      description: formData.get("description"),
-      due_date: formData.get("due_date") || null,
-      priority: formData.get("priority"),
-      status: formData.get("status"),
+      assignee_id: textValue(formData.get("assignee_id")) || userId,
+      title: requiredTextValue(formData.get("title"), "Task title"),
+      description: textValue(formData.get("description")),
+      due_date: textValue(formData.get("due_date")),
+      priority: requiredTextValue(formData.get("priority"), "Task priority"),
+      status: requiredTextValue(formData.get("status"), "Task status"),
     })
     .eq("organization_id", organization.id)
-    .eq("id", taskId);
+    .eq("id", taskId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     throw error;
+  }
+
+  if (!data?.id) {
+    throw new Error("Task not found or not accessible.");
   }
 
   revalidatePath("/tasks");
@@ -134,16 +197,22 @@ export async function updateTaskAction(formData: FormData) {
 
 export async function updateTaskStatusAction(formData: FormData) {
   const { supabase, organization } = await getCurrentOrganization();
-  const taskId = String(formData.get("task_id"));
-  const projectId = String(formData.get("project_id"));
-  const { error } = await supabase
+  const taskId = requiredId(formData.get("task_id"), "Task");
+  const projectId = textValue(formData.get("project_id"));
+  const { data, error } = await supabase
     .from("tasks")
-    .update({ status: formData.get("status") })
+    .update({ status: requiredTextValue(formData.get("status"), "Task status") })
     .eq("organization_id", organization.id)
-    .eq("id", taskId);
+    .eq("id", taskId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     throw error;
+  }
+
+  if (!data?.id) {
+    throw new Error("Task not found or not accessible.");
   }
 
   revalidatePath("/tasks");
@@ -153,12 +222,22 @@ export async function updateTaskStatusAction(formData: FormData) {
 
 export async function deleteTaskAction(formData: FormData) {
   const { supabase, organization } = await getCurrentOrganization();
-  const taskId = String(formData.get("task_id"));
-  const projectId = String(formData.get("project_id"));
-  const { error } = await supabase.from("tasks").delete().eq("organization_id", organization.id).eq("id", taskId);
+  const taskId = requiredId(formData.get("task_id"), "Task");
+  const projectId = textValue(formData.get("project_id"));
+  const { data, error } = await supabase
+    .from("tasks")
+    .delete()
+    .eq("organization_id", organization.id)
+    .eq("id", taskId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     throw error;
+  }
+
+  if (!data?.id) {
+    throw new Error("Task not found or already removed.");
   }
 
   revalidatePath("/tasks");
@@ -168,13 +247,13 @@ export async function deleteTaskAction(formData: FormData) {
 
 export async function createFieldUpdateAction(formData: FormData) {
   const { supabase, organization, userId } = await getCurrentOrganization();
-  const projectId = String(formData.get("project_id"));
+  const projectId = requiredId(formData.get("project_id"), "Project");
   const { error } = await supabase.from("field_updates").insert({
     organization_id: organization.id,
     project_id: projectId,
     created_by: userId,
-    title: formData.get("title"),
-    description: formData.get("description") || null,
+    title: requiredTextValue(formData.get("title"), "Update title"),
+    description: textValue(formData.get("description")),
   });
 
   if (error) {
@@ -186,16 +265,22 @@ export async function createFieldUpdateAction(formData: FormData) {
 
 export async function deleteFieldUpdateAction(formData: FormData) {
   const { supabase, organization } = await getCurrentOrganization();
-  const updateId = String(formData.get("update_id"));
-  const projectId = String(formData.get("project_id"));
-  const { error } = await supabase
+  const updateId = requiredId(formData.get("update_id"), "Field update");
+  const projectId = requiredId(formData.get("project_id"), "Project");
+  const { data, error } = await supabase
     .from("field_updates")
     .delete()
     .eq("organization_id", organization.id)
-    .eq("id", updateId);
+    .eq("id", updateId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     throw error;
+  }
+
+  if (!data?.id) {
+    throw new Error("Field update not found or already removed.");
   }
 
   revalidatePath(`/projects/${projectId}`);
@@ -203,22 +288,26 @@ export async function deleteFieldUpdateAction(formData: FormData) {
 
 export async function createExpenseAction(formData: FormData) {
   const { supabase, organization } = await getCurrentOrganization();
-  const projectId = String(formData.get("project_id"));
+  const projectId = requiredId(formData.get("project_id"), "Project");
   const { data, error } = await supabase
     .from("expenses")
     .insert({
       organization_id: organization.id,
       project_id: projectId,
-      vendor_id: formData.get("vendor_id") || null,
-      category: formData.get("category"),
+      vendor_id: textValue(formData.get("vendor_id")),
+      category: requiredTextValue(formData.get("category"), "Expense category"),
       amount: numberValue(formData.get("amount")),
-      expense_date: formData.get("expense_date"),
-      notes: formData.get("notes"),
+      expense_date: requiredTextValue(formData.get("expense_date"), "Expense date"),
+      notes: textValue(formData.get("notes")),
     })
     .select("id, project_id")
     .single();
 
-  if (error) {
+  if (error || !data?.id || !data?.project_id) {
+    if (!error) {
+      throw new Error("Expense could not be created.");
+    }
+
     throw error;
   }
 
@@ -230,23 +319,29 @@ export async function createExpenseAction(formData: FormData) {
 
 export async function updateExpenseAction(formData: FormData) {
   const { supabase, organization } = await getCurrentOrganization();
-  const expenseId = String(formData.get("expense_id"));
-  const projectId = String(formData.get("project_id"));
-  const { error } = await supabase
+  const expenseId = requiredId(formData.get("expense_id"), "Expense");
+  const projectId = requiredId(formData.get("project_id"), "Project");
+  const { data, error } = await supabase
     .from("expenses")
     .update({
       project_id: projectId,
-      vendor_id: formData.get("vendor_id") || null,
-      category: formData.get("category"),
+      vendor_id: textValue(formData.get("vendor_id")),
+      category: requiredTextValue(formData.get("category"), "Expense category"),
       amount: numberValue(formData.get("amount")),
-      expense_date: formData.get("expense_date"),
-      notes: formData.get("notes"),
+      expense_date: requiredTextValue(formData.get("expense_date"), "Expense date"),
+      notes: textValue(formData.get("notes")),
     })
     .eq("organization_id", organization.id)
-    .eq("id", expenseId);
+    .eq("id", expenseId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     throw error;
+  }
+
+  if (!data?.id) {
+    throw new Error("Expense not found or not accessible.");
   }
 
   revalidatePath("/expenses");
@@ -257,12 +352,22 @@ export async function updateExpenseAction(formData: FormData) {
 
 export async function deleteExpenseAction(formData: FormData) {
   const { supabase, organization } = await getCurrentOrganization();
-  const expenseId = String(formData.get("expense_id"));
-  const projectId = String(formData.get("project_id"));
-  const { error } = await supabase.from("expenses").delete().eq("organization_id", organization.id).eq("id", expenseId);
+  const expenseId = requiredId(formData.get("expense_id"), "Expense");
+  const projectId = textValue(formData.get("project_id"));
+  const { data, error } = await supabase
+    .from("expenses")
+    .delete()
+    .eq("organization_id", organization.id)
+    .eq("id", expenseId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     throw error;
+  }
+
+  if (!data?.id) {
+    throw new Error("Expense not found or already removed.");
   }
 
   revalidatePath("/expenses");
@@ -276,16 +381,20 @@ export async function createVendorAction(formData: FormData) {
     .from("vendors")
     .insert({
       organization_id: organization.id,
-      name: formData.get("name"),
-      trade: formData.get("trade"),
-      phone: formData.get("phone"),
-      email: formData.get("email"),
-      notes: formData.get("notes"),
+      name: requiredTextValue(formData.get("name"), "Vendor name"),
+      trade: textValue(formData.get("trade")),
+      phone: textValue(formData.get("phone")),
+      email: textValue(formData.get("email")),
+      notes: textValue(formData.get("notes")),
     })
     .select("id")
     .single();
 
-  if (error) {
+  if (error || !data?.id) {
+    if (!error) {
+      throw new Error("Vendor could not be created.");
+    }
+
     throw error;
   }
 
@@ -296,21 +405,27 @@ export async function createVendorAction(formData: FormData) {
 
 export async function updateVendorAction(formData: FormData) {
   const { supabase, organization } = await getCurrentOrganization();
-  const vendorId = String(formData.get("vendor_id"));
-  const { error } = await supabase
+  const vendorId = requiredId(formData.get("vendor_id"), "Vendor");
+  const { data, error } = await supabase
     .from("vendors")
     .update({
-      name: formData.get("name"),
-      trade: formData.get("trade"),
-      phone: formData.get("phone"),
-      email: formData.get("email"),
-      notes: formData.get("notes"),
+      name: requiredTextValue(formData.get("name"), "Vendor name"),
+      trade: textValue(formData.get("trade")),
+      phone: textValue(formData.get("phone")),
+      email: textValue(formData.get("email")),
+      notes: textValue(formData.get("notes")),
     })
     .eq("organization_id", organization.id)
-    .eq("id", vendorId);
+    .eq("id", vendorId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     throw error;
+  }
+
+  if (!data?.id) {
+    throw new Error("Vendor not found or not accessible.");
   }
 
   revalidatePath("/vendors");
@@ -320,11 +435,21 @@ export async function updateVendorAction(formData: FormData) {
 
 export async function deleteVendorAction(formData: FormData) {
   const { supabase, organization } = await getCurrentOrganization();
-  const vendorId = String(formData.get("vendor_id"));
-  const { error } = await supabase.from("vendors").delete().eq("organization_id", organization.id).eq("id", vendorId);
+  const vendorId = requiredId(formData.get("vendor_id"), "Vendor");
+  const { data, error } = await supabase
+    .from("vendors")
+    .delete()
+    .eq("organization_id", organization.id)
+    .eq("id", vendorId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     throw error;
+  }
+
+  if (!data?.id) {
+    throw new Error("Vendor not found or already removed.");
   }
 
   revalidatePath("/vendors");

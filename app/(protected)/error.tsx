@@ -9,6 +9,8 @@ export default function ProtectedError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const message = error.message?.trim() || "An unexpected error occurred while loading this page.";
+
   return (
     <Card className="space-y-5 p-6">
       <div>
@@ -17,7 +19,7 @@ export default function ProtectedError({
         <p className="mt-3 max-w-2xl text-sm text-slate-600">
           Try reloading the page. If the problem continues, the current data request may be failing or the database shape may be out of sync.
         </p>
-        <p className="mt-3 text-sm text-slate-500">{error.message}</p>
+        <p className="mt-3 text-sm text-slate-500">{message}</p>
       </div>
       <div className="flex flex-wrap gap-3">
         <button

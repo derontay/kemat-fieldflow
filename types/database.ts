@@ -35,6 +35,26 @@ export interface Task {
   created_at: string;
 }
 
+export interface TaskTemplate {
+  id: string;
+  organization_id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskTemplateItem {
+  id: string;
+  organization_id: string;
+  template_id: string;
+  title: string;
+  description: string | null;
+  priority: TaskPriority;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface FieldUpdate {
   id: string;
   organization_id: string;

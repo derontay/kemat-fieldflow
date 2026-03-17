@@ -2,7 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, CreditCard, FolderKanban, LayoutDashboard, Receipt, SquareCheckBig, Truck } from "lucide-react";
+import {
+  BookTemplate,
+  Building2,
+  CreditCard,
+  FolderKanban,
+  LayoutDashboard,
+  Receipt,
+  SquareCheckBig,
+  Truck,
+} from "lucide-react";
 import { APP_NAME } from "@/lib/config";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +19,7 @@ const links = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/tasks", label: "Tasks", icon: SquareCheckBig },
+  { href: "/templates", label: "Templates", icon: BookTemplate },
   { href: "/expenses", label: "Expenses", icon: Receipt },
   { href: "/vendors", label: "Vendors", icon: Truck },
   { href: "/settings", label: "Settings", icon: CreditCard },
