@@ -952,10 +952,12 @@ export async function getTasksCommandView({
   filter = "all",
   sort = "due_soon",
   query = "",
+  projectId,
 }: {
   filter?: string;
   sort?: string;
   query?: string;
+  projectId?: string;
 }) {
   const { supabase, organization } = await getCurrentOrganization();
   const rows = ((await getTasks()) ?? []) as Array<{
@@ -970,6 +972,7 @@ export async function getTasksCommandView({
     created_at: string;
     project?: { name: string } | { name: string }[] | null;
   }>;
+  let activeProject: { id: string; name: string } | null = null;
   const normalizedQuery = query.trim().toLowerCase();
   const normalizedFilter =
     filter === "not_started" ||
@@ -985,7 +988,27 @@ export async function getTasksCommandView({
       ? sort
       : "due_soon";
 
+  if (projectId) {
+    const { data: project, error: projectError } = await supabase
+      .from("projects")
+      .select("id, name")
+      .eq("organization_id", organization.id)
+      .eq("id", projectId)
+      .maybeSingle();
+
+    if (projectError) {
+      throw projectError;
+    }
+
+    if (!project) {
+      notFound();
+    }
+
+    activeProject = project as { id: string; name: string };
+  }
+
   const filteredRows = rows.filter((task) => {
+    if (projectId && task.project_id !== projectId) return false;
     if (normalizedFilter === "all") return true;
     if (normalizedFilter === "overdue") {
       return task.status !== "done" && task.due_date ? new Date(task.due_date) < startOfToday() : false;
@@ -1042,6 +1065,8 @@ export async function getTasksCommandView({
 
   return {
     organizationId: organization.id,
+    projectId: activeProject?.id ?? null,
+    projectName: activeProject?.name ?? null,
     filter: normalizedFilter,
     sort: normalizedSort,
     query,

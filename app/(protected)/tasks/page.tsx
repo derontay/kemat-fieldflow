@@ -33,7 +33,7 @@ function labelize(value: string) {
   return value.replace("_", " ");
 }
 
-function projectName(task: TaskRow) {
+function taskProjectName(task: TaskRow) {
   if (Array.isArray(task.project)) return task.project[0]?.name ?? "Unknown project";
   return task.project?.name ?? "Unknown project";
 }
@@ -55,11 +55,12 @@ const sorts = [
   { value: "newest", label: "Newest" },
 ] as const;
 
-function buildTasksHref(filter: string, sort: string, query: string) {
+function buildTasksHref(filter: string, sort: string, query: string, projectId?: string | null) {
   const params = new URLSearchParams();
   if (filter !== "all") params.set("filter", filter);
   if (sort !== "due_soon") params.set("sort", sort);
   if (query.trim()) params.set("q", query.trim());
+  if (projectId) params.set("projectId", projectId);
   const queryString = params.toString();
   return queryString ? `/tasks?${queryString}` : "/tasks";
 }
@@ -67,20 +68,25 @@ function buildTasksHref(filter: string, sort: string, query: string) {
 export default async function TasksPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ filter?: string; sort?: string; q?: string }>;
+  searchParams?: Promise<{ filter?: string; sort?: string; q?: string; projectId?: string }>;
 }) {
   const params = (await searchParams) ?? {};
-  const { tasks, filter, sort, query } = await getTasksCommandView({
+  const { tasks, filter, sort, query, projectId, projectName } = await getTasksCommandView({
     filter: params.filter,
     sort: params.sort,
     query: params.q,
+    projectId: params.projectId,
   });
 
   return (
     <div className="space-y-6">
       <Topbar
         title="Tasks"
-        subtitle="Track work items across the current organization and keep status updates tied to their projects."
+        subtitle={
+          projectName
+            ? `Task command view for ${projectName}.`
+            : "Track work items across the current organization and keep status updates tied to their projects."
+        }
       />
       <Card className="space-y-6 p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -93,10 +99,22 @@ export default async function TasksPage({
           </div>
           <ButtonLink href="/tasks/new">New Task</ButtonLink>
         </div>
+        {projectName ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Active Project Context</p>
+              <p className="mt-2 font-medium text-ink">{projectName}</p>
+            </div>
+            <ButtonLink href="/tasks" variant="ghost">
+              Clear Project Filter
+            </ButtonLink>
+          </div>
+        ) : null}
         <div className="grid gap-4 rounded-[1.75rem] border border-slate-200 bg-sand/50 p-4 md:grid-cols-[1.2fr_0.8fr]">
           <form action="/tasks" className="space-y-3 md:col-span-2">
             <input type="hidden" name="filter" value={filter} />
             <input type="hidden" name="sort" value={sort} />
+            {projectId ? <input type="hidden" name="projectId" value={projectId} /> : null}
             <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Search</p>
             <div className="flex flex-col gap-3 md:flex-row">
               <Input
@@ -116,7 +134,7 @@ export default async function TasksPage({
               {filters.map((option) => (
                 <Link
                   key={option.value}
-                  href={buildTasksHref(option.value, sort, query)}
+                  href={buildTasksHref(option.value, sort, query, projectId)}
                   className={cn(
                     "inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-medium transition",
                     filter === option.value
@@ -135,7 +153,7 @@ export default async function TasksPage({
               {sorts.map((option) => (
                 <Link
                   key={option.value}
-                  href={buildTasksHref(filter, option.value, query)}
+                  href={buildTasksHref(filter, option.value, query, projectId)}
                   className={cn(
                     "inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-medium transition",
                     sort === option.value
@@ -162,7 +180,9 @@ export default async function TasksPage({
               query.trim()
                 ? "Try a different task title, description, filter, or sort view."
                 : filter === "all"
-                  ? "Add the first task for one of your projects."
+                  ? projectName
+                    ? "No tasks match this project context yet."
+                    : "Add the first task for one of your projects."
                   : "Try a different status filter or sort view."
             }
             action={
@@ -182,7 +202,7 @@ export default async function TasksPage({
                       <Badge tone={priorityTone(task.priority)}>{labelize(task.priority)}</Badge>
                       <Badge tone={statusTone(task.status)}>{labelize(task.status)}</Badge>
                     </div>
-                    <p className="mt-2 text-sm text-slate-600">Project: {projectName(task)}</p>
+                    <p className="mt-2 text-sm text-slate-600">Project: {taskProjectName(task)}</p>
                     <p className="mt-2 text-sm text-slate-600">
                       {task.description || "No description added yet."}
                     </p>

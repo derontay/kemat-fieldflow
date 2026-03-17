@@ -34,13 +34,16 @@ function healthTone(status: string): "success" | "warning" | "danger" {
 function tasksHref({
   filter = "all",
   sort = "due_soon",
+  projectId,
 }: {
   filter?: string;
   sort?: string;
+  projectId?: string;
 }) {
   const params = new URLSearchParams();
   if (filter !== "all") params.set("filter", filter);
   if (sort !== "due_soon") params.set("sort", sort);
+  if (projectId) params.set("projectId", projectId);
   const queryString = params.toString();
   return queryString ? `/tasks?${queryString}` : "/tasks";
 }
@@ -163,7 +166,7 @@ export default async function ProjectDetailPage({
             {
               key: "overdue",
               title: "Overdue Tasks",
-              href: tasksHref({ filter: "overdue", sort: "overdue_first" }),
+              href: tasksHref({ filter: "overdue", sort: "overdue_first", projectId: project.id }),
               count: snapshot.overdueTasks.count,
               content:
                 snapshot.overdueTasks.items.length === 0 ? (
@@ -185,7 +188,7 @@ export default async function ProjectDetailPage({
             {
               key: "blocked",
               title: "Blocked Tasks",
-              href: tasksHref({ filter: "blocked", sort: "overdue_first" }),
+              href: tasksHref({ filter: "blocked", sort: "overdue_first", projectId: project.id }),
               count: snapshot.blockedTasks.count,
               content:
                 snapshot.blockedTasks.items.length === 0 ? (
@@ -207,7 +210,7 @@ export default async function ProjectDetailPage({
             {
               key: "due-soon",
               title: "Tasks Due Soon",
-              href: tasksHref({ filter: "all", sort: "due_soon" }),
+              href: tasksHref({ filter: "all", sort: "due_soon", projectId: project.id }),
               count: snapshot.dueSoonTasks.count,
               content:
                 snapshot.dueSoonTasks.items.length === 0 ? (
