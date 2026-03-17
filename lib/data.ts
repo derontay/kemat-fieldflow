@@ -97,72 +97,64 @@ export const getCurrentOrganization = cache(async (): Promise<{
 });
 
 export async function getDashboardData() {
-  const { supabase, organization } = await getCurrentOrganization();
-
+  const { supabase, organization, userId } = await getCurrentOrganization();
   const today = new Date().toISOString().slice(0, 10);
-  const upcomingDeadline = addDays(new Date(), 14).toISOString().slice(0, 10);
 
-  const [{ data: projects }, { data: tasks }, { data: updates }, { data: expenses }] =
-    await Promise.all([
-      supabase
-        .from("projects")
-        .select("*")
-        .eq("organization_id", organization.id)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("tasks")
-        .select("*")
-        .eq("organization_id", organization.id)
-        .neq("status", "done"),
-      supabase
-        .from("field_updates")
-        .select("*, project:projects(name)")
-        .eq("organization_id", organization.id)
-        .order("created_at", { ascending: false })
-        .limit(5),
-      supabase
-        .from("expenses")
-        .select("project_id, amount")
-        .eq("organization_id", organization.id),
-    ]);
+  const [
+    { count: totalProjects, error: projectsError },
+    { count: activeProjects, error: activeProjectsError },
+    { data: openTasks, error: openTasksError },
+    { data: expenses, error: expensesError },
+    { data: recentUpdates, error: updatesError },
+  ] = await Promise.all([
+    supabase
+      .from("projects")
+      .select("*", { count: "exact", head: true })
+      .eq("organization_id", organization.id),
+    supabase
+      .from("projects")
+      .select("*", { count: "exact", head: true })
+      .eq("organization_id", organization.id)
+      .eq("status", "active"),
+    supabase
+      .from("tasks")
+      .select("id, due_date, status, title, project_id, project:projects(name)")
+      .eq("organization_id", organization.id)
+      .neq("status", "done")
+      .order("due_date", { ascending: true }),
+    supabase
+      .from("expenses")
+      .select("amount")
+      .eq("organization_id", organization.id),
+    supabase
+      .from("field_updates")
+      .select("id, title, description, created_at, created_by, project_id, project:projects(name)")
+      .eq("organization_id", organization.id)
+      .order("created_at", { ascending: false })
+      .limit(5),
+  ]);
 
-  const expenseTotals = new Map<string, number>();
-  (expenses ?? []).forEach((expense) => {
-    expenseTotals.set(expense.project_id, (expenseTotals.get(expense.project_id) ?? 0) + Number(expense.amount));
-  });
+  if (projectsError) throw projectsError;
+  if (activeProjectsError) throw activeProjectsError;
+  if (openTasksError) throw openTasksError;
+  if (expensesError) throw expensesError;
+  if (updatesError) throw updatesError;
 
-  const enrichedProjects = (projects ?? []).map((project) => {
-    const totalExpenses = expenseTotals.get(project.id) ?? Number(project.actual_spend ?? 0);
-    return {
-      ...project,
-      total_expenses: totalExpenses,
-      variance: Number(project.planned_budget) - totalExpenses,
-    };
-  });
+  const openTaskRows = openTasks ?? [];
+  const totalExpenses = (expenses ?? []).reduce((sum, item) => sum + Number(item.amount), 0);
 
   return {
     organization,
+    currentUserId: userId,
     metrics: {
-      activeProjects: enrichedProjects.filter((project) => project.status === "active").length,
-      overdueTasks: (tasks ?? []).filter((task) => task.due_date && task.due_date < today).length,
-      overBudgetProjects: enrichedProjects.filter(
-        (project) => (project.total_expenses ?? 0) > Number(project.planned_budget),
-      ).length,
+      totalProjects: totalProjects ?? 0,
+      activeProjects: activeProjects ?? 0,
+      totalOpenTasks: openTaskRows.length,
+      overdueTasks: openTaskRows.filter((task) => task.due_date && task.due_date < today).length,
+      totalExpenses,
     },
-    alerts: {
-      overdueTasks: (tasks ?? []).filter((task) => task.due_date && task.due_date < today).slice(0, 5),
-      deadlineProjects: enrichedProjects.filter(
-        (project) =>
-          project.target_completion_date &&
-          project.target_completion_date >= today &&
-          project.target_completion_date <= upcomingDeadline,
-      ),
-      overBudgetProjects: enrichedProjects.filter(
-        (project) => (project.total_expenses ?? 0) > Number(project.planned_budget),
-      ),
-    },
-    recentUpdates: updates ?? [],
-    projects: enrichedProjects,
+    openTasks: openTaskRows,
+    recentUpdates: recentUpdates ?? [],
   };
 }
 
