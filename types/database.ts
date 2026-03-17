@@ -1,0 +1,70 @@
+export type ProjectStatus = "planning" | "active" | "on_hold" | "complete";
+export type TaskPriority = "low" | "medium" | "high" | "urgent";
+export type TaskStatus = "not_started" | "in_progress" | "blocked" | "done";
+
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface Project {
+  id: string;
+  organization_id: string;
+  name: string;
+  address: string | null;
+  status: ProjectStatus;
+  start_date: string | null;
+  target_completion_date: string | null;
+  planned_budget: number;
+  actual_spend: number;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface Task {
+  id: string;
+  organization_id: string;
+  project_id: string;
+  assignee_id: string | null;
+  title: string;
+  description: string | null;
+  due_date: string | null;
+  priority: TaskPriority;
+  status: TaskStatus;
+  created_at: string;
+}
+
+export interface FieldUpdate {
+  id: string;
+  organization_id: string;
+  project_id: string;
+  author_id: string | null;
+  note_text: string;
+  percent_complete: number | null;
+  photo_paths: string[];
+  created_at: string;
+}
+
+export interface Expense {
+  id: string;
+  organization_id: string;
+  project_id: string;
+  vendor_id: string | null;
+  category: string;
+  amount: number;
+  expense_date: string;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface Vendor {
+  id: string;
+  organization_id: string;
+  name: string;
+  trade: string | null;
+  phone: string | null;
+  email: string | null;
+  notes: string | null;
+  created_at: string;
+}
