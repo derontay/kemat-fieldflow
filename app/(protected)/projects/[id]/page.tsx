@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { FieldUpdateForm } from "@/components/projects/field-update-form";
 import { ApplyTemplateForm } from "@/components/templates/apply-template-form";
 import { ConfirmButton } from "@/components/confirm-button";
@@ -46,6 +47,29 @@ function tasksHref({
   if (projectId) params.set("projectId", projectId);
   const queryString = params.toString();
   return queryString ? `/tasks?${queryString}` : "/tasks";
+}
+
+function expensesHref({
+  filter = "all",
+  sort = "newest",
+  projectId,
+  vendorId,
+  category,
+}: {
+  filter?: string;
+  sort?: string;
+  projectId?: string;
+  vendorId?: string;
+  category?: string;
+}) {
+  const params = new URLSearchParams();
+  if (filter !== "all") params.set("filter", filter);
+  if (sort !== "newest") params.set("sort", sort);
+  if (projectId) params.set("projectId", projectId);
+  if (vendorId) params.set("vendorId", vendorId);
+  if (category) params.set("category", category);
+  const queryString = params.toString();
+  return queryString ? `/expenses?${queryString}` : "/expenses";
 }
 
 export default async function ProjectDetailPage({
@@ -232,7 +256,7 @@ export default async function ProjectDetailPage({
             {
               key: "expenses",
               title: "Recent Expenses",
-              href: "/expenses",
+              href: expensesHref({ sort: "newest", projectId: project.id }),
               count: snapshot.recentExpenses.count,
               content:
                 snapshot.recentExpenses.items.length === 0 ? (
@@ -329,14 +353,23 @@ export default async function ProjectDetailPage({
             ) : (
               <div className="mt-4 space-y-3">
                 {spendBreakdown.topCategories.map((category) => (
-                  <div key={category.category} className="rounded-[1.25rem] border border-slate-200 bg-white/80 p-4">
+                  <Link
+                    key={category.category}
+                    href={expensesHref({ sort: "newest", projectId: project.id, category: category.category })}
+                    className="block rounded-[1.25rem] border border-slate-200 bg-white/80 p-4 transition hover:border-brand-300 hover:shadow-panel"
+                  >
                     <p className="font-medium text-ink">{category.category}</p>
                     <p className="mt-2 text-sm text-slate-600">Spend: {currency(category.spend)}</p>
                     <p className="mt-1 text-sm text-slate-600">Expenses: {category.count}</p>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
+            <div className="mt-4">
+              <ButtonLink href={expensesHref({ sort: "newest", projectId: project.id })} variant="ghost">
+                Open project expenses
+              </ButtonLink>
+            </div>
           </div>
           <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50/80 p-5">
             <div className="flex items-center justify-between gap-3">
@@ -358,6 +391,11 @@ export default async function ProjectDetailPage({
                 ))}
               </div>
             )}
+            <div className="mt-4">
+              <ButtonLink href={expensesHref({ filter: "with_vendor", sort: "newest", projectId: project.id })} variant="ghost">
+                Open vendor-linked expenses
+              </ButtonLink>
+            </div>
           </div>
         </div>
       </Card>

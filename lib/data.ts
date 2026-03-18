@@ -3,10 +3,16 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import {
   type Expense,
+  type ExpenseSavedViewShortcut,
   type FieldUpdate,
   type Organization,
+  type PinnedSavedViewLink,
   type Project,
+  type SavedView,
+  type SavedViewQueryState,
+  type SavedViewType,
   type Task,
+  type TaskSavedViewShortcut,
   type TaskTemplate,
   type TaskTemplateItem,
   type Vendor,
@@ -975,6 +981,7 @@ export async function getTasksCommandView({
   let activeProject: { id: string; name: string } | null = null;
   const normalizedQuery = query.trim().toLowerCase();
   const normalizedFilter =
+    filter === "due_today" ||
     filter === "not_started" ||
     filter === "in_progress" ||
     filter === "blocked" ||
@@ -1010,6 +1017,9 @@ export async function getTasksCommandView({
   const filteredRows = rows.filter((task) => {
     if (projectId && task.project_id !== projectId) return false;
     if (normalizedFilter === "all") return true;
+    if (normalizedFilter === "due_today") {
+      return task.status !== "done" && task.due_date ? isSameDay(task.due_date, startOfToday()) : false;
+    }
     if (normalizedFilter === "overdue") {
       return task.status !== "done" && task.due_date ? new Date(task.due_date) < startOfToday() : false;
     }
@@ -1244,13 +1254,22 @@ export async function getExpensesCommandView({
   filter = "all",
   sort = "newest",
   query = "",
+  projectId,
+  vendorId,
+  category,
 }: {
   filter?: string;
   sort?: string;
   query?: string;
+  projectId?: string;
+  vendorId?: string;
+  category?: string;
 }) {
   const { supabase, organization } = await getCurrentOrganization();
   const rows = await getExpenseRows(supabase, organization.id);
+  let activeProject: { id: string; name: string } | null = null;
+  let activeVendor: { id: string; name: string } | null = null;
+  const activeCategory = category?.trim() || null;
   const normalizedQuery = query.trim().toLowerCase();
   const normalizedFilter =
     filter === "with_vendor" || filter === "no_vendor" || filter === "high_cost" || filter === "recent"
@@ -1259,7 +1278,48 @@ export async function getExpensesCommandView({
   const normalizedSort =
     sort === "highest_amount" || sort === "oldest" || sort === "project_name" ? sort : "newest";
 
+  if (projectId) {
+    const { data: project, error: projectError } = await supabase
+      .from("projects")
+      .select("id, name")
+      .eq("organization_id", organization.id)
+      .eq("id", projectId)
+      .maybeSingle();
+
+    if (projectError) {
+      throw projectError;
+    }
+
+    if (!project) {
+      notFound();
+    }
+
+    activeProject = project as { id: string; name: string };
+  }
+
+  if (vendorId) {
+    const { data: vendor, error: vendorError } = await supabase
+      .from("vendors")
+      .select("id, name")
+      .eq("organization_id", organization.id)
+      .eq("id", vendorId)
+      .maybeSingle();
+
+    if (vendorError) {
+      throw vendorError;
+    }
+
+    if (!vendor) {
+      notFound();
+    }
+
+    activeVendor = vendor as { id: string; name: string };
+  }
+
   const filteredRows = rows.filter((expense) => {
+    if (projectId && expense.project_id !== projectId) return false;
+    if (vendorId && expense.vendor_id !== vendorId) return false;
+    if (activeCategory && expense.category !== activeCategory) return false;
     if (normalizedFilter === "all") return true;
     if (normalizedFilter === "with_vendor") return Boolean(expense.vendor_id);
     if (normalizedFilter === "no_vendor") return !expense.vendor_id;
@@ -1305,6 +1365,11 @@ export async function getExpensesCommandView({
   });
 
   return {
+    projectId: activeProject?.id ?? null,
+    projectName: activeProject?.name ?? null,
+    vendorId: activeVendor?.id ?? null,
+    vendorName: activeVendor?.name ?? null,
+    category: activeCategory,
     filter: normalizedFilter,
     sort: normalizedSort,
     query,
@@ -1339,6 +1404,267 @@ export async function getVendorDetail(vendorId: string) {
   if (!data) notFound();
 
   return data as Vendor;
+}
+
+export async function getSavedViews(type: SavedViewType) {
+  const { supabase, organization } = await getCurrentOrganization();
+  const { data, error } = await supabase
+    .from("saved_views")
+    .select("id, organization_id, name, type, query_state, created_at, is_pinned, is_default")
+    .eq("organization_id", organization.id)
+    .eq("type", type)
+    .order("created_at", { ascending: false });
+
+  if (error?.code === "42703") {
+    console.warn(
+      `[saved_views] DB schema is outdated. Apply latest migrations. Falling back to base schema for ${type} because pinned/default columns are missing.`,
+      { code: error.code, message: error.message },
+    );
+
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from("saved_views")
+      .select("id, organization_id, name, type, query_state, created_at")
+      .eq("organization_id", organization.id)
+      .eq("type", type)
+      .order("created_at", { ascending: false });
+
+    if (fallbackError) {
+      throw fallbackError;
+    }
+
+    console.info("[saved_views] Loaded fallback rows.", {
+      type,
+      supportsPriorityFields: false,
+      rowCount: fallbackData?.length ?? 0,
+      sampleKeys: fallbackData?.[0] ? Object.keys(fallbackData[0]) : [],
+    });
+
+    return {
+      supportsPriorityFields: false,
+      views: ((fallbackData ?? []) as Array<{
+        id: string;
+        organization_id: string;
+        name: string;
+        type: SavedViewType;
+        query_state: SavedView["query_state"] | null;
+        created_at: string;
+      }>).map((view) => ({
+        ...view,
+        query_state: view.query_state ?? {},
+        is_pinned: false,
+        is_default: false,
+      })) as SavedView[],
+    };
+  }
+
+  if (error) {
+    throw error;
+  }
+
+  console.info("[saved_views] Loaded priority-aware rows.", {
+    type,
+    supportsPriorityFields: true,
+    rowCount: data?.length ?? 0,
+    sampleKeys: data?.[0] ? Object.keys(data[0]) : [],
+  });
+
+  return {
+    supportsPriorityFields: true,
+    views: ((data ?? []) as SavedView[])
+      .map((view) => ({
+        ...view,
+        query_state: view.query_state ?? {},
+        is_pinned: Boolean(view.is_pinned),
+        is_default: Boolean(view.is_default),
+      }))
+      .sort(
+        (left, right) =>
+          Number(right.is_pinned) - Number(left.is_pinned) ||
+          Number(right.is_default) - Number(left.is_default) ||
+          new Date(right.created_at).getTime() - new Date(left.created_at).getTime(),
+      ),
+  };
+}
+
+function buildTasksSavedViewHref(state: SavedViewQueryState) {
+  const params = new URLSearchParams();
+  if (state.filter && state.filter !== "all") params.set("filter", state.filter);
+  if (state.sort && state.sort !== "due_soon") params.set("sort", state.sort);
+  if (state.q?.trim()) params.set("q", state.q.trim());
+  if (state.projectId) params.set("projectId", state.projectId);
+  const queryString = params.toString();
+  return queryString ? `/tasks?${queryString}` : "/tasks";
+}
+
+function buildExpensesSavedViewHref(state: SavedViewQueryState) {
+  const params = new URLSearchParams();
+  if (state.filter && state.filter !== "all") params.set("filter", state.filter);
+  if (state.sort && state.sort !== "newest") params.set("sort", state.sort);
+  if (state.q?.trim()) params.set("q", state.q.trim());
+  if (state.projectId) params.set("projectId", state.projectId);
+  if (state.vendorId) params.set("vendorId", state.vendorId);
+  if (state.category) params.set("category", state.category);
+  const queryString = params.toString();
+  return queryString ? `/expenses?${queryString}` : "/expenses";
+}
+
+function buildTaskSavedViewShortcuts(savedViews: SavedView[]): TaskSavedViewShortcut[] {
+  const definitions = [
+    {
+      key: "due_today" as const,
+      name: "Due Today",
+      description: "Tasks due before the day ends.",
+      filter: "due_today",
+      sort: "due_soon",
+    },
+    {
+      key: "overdue" as const,
+      name: "Overdue",
+      description: "Tasks that are already past due.",
+      filter: "overdue",
+      sort: "overdue_first",
+    },
+    {
+      key: "blocked" as const,
+      name: "Blocked",
+      description: "Tasks waiting on an unblocker.",
+      filter: "blocked",
+      sort: "overdue_first",
+    },
+  ];
+
+  return definitions.map((definition) => {
+    const fallbackHref = buildTasksSavedViewHref({
+      filter: definition.filter,
+      sort: definition.sort,
+    });
+    const matchedView = savedViews.find((view) => buildTasksSavedViewHref(view.query_state ?? {}) === fallbackHref) ?? null;
+
+    return {
+      key: definition.key,
+      baseName: definition.name,
+      name: matchedView?.name ?? definition.name,
+      description: definition.description,
+      filter: definition.filter,
+      sort: definition.sort,
+      href: matchedView ? buildTasksSavedViewHref(matchedView.query_state ?? {}) : fallbackHref,
+      fallbackHref,
+      matchedView,
+      label: matchedView ? "Open saved view" : "Open command view",
+    };
+  });
+}
+
+export async function getTaskSavedViewSummary() {
+  const savedViewsResult = await getSavedViews("tasks");
+
+  return {
+    ...savedViewsResult,
+    shortcuts: buildTaskSavedViewShortcuts(savedViewsResult.views),
+  };
+}
+
+function buildExpenseSavedViewShortcuts(savedViews: SavedView[]): ExpenseSavedViewShortcut[] {
+  const definitions = [
+    {
+      key: "recent" as const,
+      name: "Recent Expenses",
+      description: "Newest expense activity across the organization.",
+      filter: "recent",
+      sort: "newest",
+    },
+    {
+      key: "with_vendor" as const,
+      name: "Vendor-Linked Expenses",
+      description: "Expenses already connected to vendors.",
+      filter: "with_vendor",
+      sort: "newest",
+    },
+    {
+      key: "high_cost" as const,
+      name: "High Cost",
+      description: "Large expenses that may need review.",
+      filter: "high_cost",
+      sort: "highest_amount",
+    },
+  ];
+
+  return definitions.map((definition) => {
+    const fallbackHref = buildExpensesSavedViewHref({
+      filter: definition.filter,
+      sort: definition.sort,
+    });
+    const matchedView =
+      savedViews.find((view) => buildExpensesSavedViewHref(view.query_state ?? {}) === fallbackHref) ?? null;
+
+    return {
+      key: definition.key,
+      baseName: definition.name,
+      name: matchedView?.name ?? definition.name,
+      description: definition.description,
+      filter: definition.filter,
+      sort: definition.sort,
+      href: matchedView ? buildExpensesSavedViewHref(matchedView.query_state ?? {}) : fallbackHref,
+      fallbackHref,
+      matchedView,
+      label: matchedView ? "Open saved view" : "Open command view",
+    };
+  });
+}
+
+export async function getExpenseSavedViewSummary() {
+  const savedViewsResult = await getSavedViews("expenses");
+
+  return {
+    ...savedViewsResult,
+    shortcuts: buildExpenseSavedViewShortcuts(savedViewsResult.views),
+  };
+}
+
+export async function getPinnedSavedViewLinks() {
+  const [taskSummary, expenseSummary] = await Promise.all([
+    getTaskSavedViewSummary(),
+    getExpenseSavedViewSummary(),
+  ]);
+
+  if (!taskSummary.supportsPriorityFields && !expenseSummary.supportsPriorityFields) {
+    return {
+      supportsPriorityFields: false,
+      views: [] as PinnedSavedViewLink[],
+    };
+  }
+
+  const taskViews = taskSummary.supportsPriorityFields
+    ? taskSummary.views
+        .filter((view) => view.is_pinned)
+        .map((view) => ({
+          id: view.id,
+          type: view.type,
+          name: view.name,
+          href: buildTasksSavedViewHref(view.query_state ?? {}),
+          is_default: view.is_default,
+        }))
+    : [];
+
+  const expenseViews = expenseSummary.supportsPriorityFields
+    ? expenseSummary.views
+        .filter((view) => view.is_pinned)
+        .map((view) => ({
+          id: view.id,
+          type: view.type,
+          name: view.name,
+          href: buildExpensesSavedViewHref(view.query_state ?? {}),
+          is_default: view.is_default,
+        }))
+    : [];
+
+  return {
+    supportsPriorityFields: taskSummary.supportsPriorityFields || expenseSummary.supportsPriorityFields,
+    views: [...taskViews, ...expenseViews].sort(
+      (left, right) =>
+        Number(right.is_default) - Number(left.is_default) || left.name.localeCompare(right.name),
+    ) as PinnedSavedViewLink[],
+  };
 }
 
 export async function getSettingsData() {

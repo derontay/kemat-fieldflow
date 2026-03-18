@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Topbar } from "@/components/layout/topbar";
 import { Badge, ButtonLink, Card, EmptyState, StatCard } from "@/components/ui";
-import { getDashboardData } from "@/lib/data";
+import { getDashboardData, getExpenseSavedViewSummary, getTaskSavedViewSummary } from "@/lib/data";
 import { cn, currency, formatDate, formatDateTime, isOverdue } from "@/lib/utils";
 
 type DashboardTask = {
@@ -23,6 +23,22 @@ type DashboardUpdate = {
   project?: { name: string } | { name: string }[] | null;
 };
 
+type CommandTaskItem = {
+  id: string;
+  title: string;
+  dueDate: string | null;
+  status: string;
+  projectId: string;
+  projectName: string | null;
+};
+
+type StaleProjectItem = {
+  id: string;
+  name: string;
+  overdueTasks: number;
+  lastUpdateAt: string | null;
+};
+
 function relationName(value?: { name: string } | { name: string }[] | null) {
   if (Array.isArray(value)) return value[0]?.name ?? null;
   return value?.name ?? null;
@@ -42,71 +58,85 @@ function projectsHref({
   return queryString ? `/projects?${queryString}` : "/projects";
 }
 
-function tasksHref({
-  filter = "all",
-  sort = "due_soon",
-}: {
-  filter?: string;
-  sort?: string;
-}) {
-  const params = new URLSearchParams();
-  if (filter !== "all") params.set("filter", filter);
-  if (sort !== "due_soon") params.set("sort", sort);
-  const queryString = params.toString();
-  return queryString ? `/tasks?${queryString}` : "/tasks";
-}
-
 function projectDetailHref(projectId: string) {
   return `/projects/${projectId}`;
 }
 
+function expensesHref({
+  vendorId,
+  category,
+}: {
+  vendorId?: string;
+  category?: string;
+}) {
+  const params = new URLSearchParams();
+  if (vendorId) params.set("vendorId", vendorId);
+  if (category) params.set("category", category);
+  return `/expenses?${params.toString()}`;
+}
+
+function TaskOperationalCard({ item }: { item: CommandTaskItem }) {
+  return (
+    <div className="rounded-[1.25rem] border border-slate-200 bg-white/80 p-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <Link href={projectDetailHref(item.projectId)} className="font-medium text-ink transition hover:text-brand-700">
+            {item.title}
+          </Link>
+          <p className="mt-2 text-sm text-slate-600">Project: {item.projectName || "Unknown project"}</p>
+          <p className="mt-1 text-sm text-slate-600">Due: {formatDate(item.dueDate)}</p>
+        </div>
+        <Badge
+          tone={
+            item.status === "blocked"
+              ? "warning"
+              : isOverdue(item.dueDate) && item.status !== "done"
+                ? "danger"
+                : "default"
+          }
+        >
+          {item.status.replace("_", " ")}
+        </Badge>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200 pt-4">
+        <ButtonLink href={projectDetailHref(item.projectId)} variant="ghost">
+          View Project
+        </ButtonLink>
+      </div>
+    </div>
+  );
+}
+
+function StaleProjectOperationalCard({ item }: { item: StaleProjectItem }) {
+  return (
+    <div className="rounded-[1.25rem] border border-slate-200 bg-white/80 p-4">
+      <Link href={projectDetailHref(item.id)} className="font-medium text-ink transition hover:text-brand-700">
+        {item.name}
+      </Link>
+      <p className="mt-2 text-sm text-slate-600">Last update: {formatDateTime(item.lastUpdateAt)}</p>
+      <p className="mt-1 text-sm text-slate-600">Overdue tasks: {item.overdueTasks}</p>
+      <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200 pt-4">
+        <ButtonLink href={projectDetailHref(item.id)} variant="ghost">
+          View Project
+        </ButtonLink>
+      </div>
+    </div>
+  );
+}
+
 export default async function DashboardPage() {
-  const dashboard = await getDashboardData();
+  const [dashboard, taskSavedViewSummary, expenseSavedViewSummary] = await Promise.all([
+    getDashboardData(),
+    getTaskSavedViewSummary(),
+    getExpenseSavedViewSummary(),
+  ]);
   const openTasks = dashboard.openTasks as DashboardTask[];
   const recentUpdates = dashboard.recentUpdates as DashboardUpdate[];
   const todayView = dashboard.today as {
-    tasksDueToday: {
-      count: number;
-      items: Array<{
-        id: string;
-        title: string;
-        dueDate: string | null;
-        status: string;
-        projectId: string;
-        projectName: string | null;
-      }>;
-    };
-    overdueTasks: {
-      count: number;
-      items: Array<{
-        id: string;
-        title: string;
-        dueDate: string | null;
-        status: string;
-        projectId: string;
-        projectName: string | null;
-      }>;
-    };
-    blockedTasks: {
-      count: number;
-      items: Array<{
-        id: string;
-        title: string;
-        dueDate: string | null;
-        status: string;
-        projectId: string;
-        projectName: string | null;
-      }>;
-    };
-    staleProjects: {
-      count: number;
-      items: Array<{
-        id: string;
-        name: string;
-        overdueTasks: number;
-        lastUpdateAt: string | null;
-      }>;
-    };
+    tasksDueToday: { count: number; items: CommandTaskItem[] };
+    overdueTasks: { count: number; items: CommandTaskItem[] };
+    blockedTasks: { count: number; items: CommandTaskItem[] };
+    staleProjects: { count: number; items: StaleProjectItem[] };
     recentFieldUpdates: {
       count: number;
       items: Array<{
@@ -121,18 +151,7 @@ export default async function DashboardPage() {
     };
   };
   const attentionCenter = dashboard.attentionCenter as {
-    overdueTasks: {
-      severity: "High" | "Medium" | "Low";
-      count: number;
-      items: Array<{
-        id: string;
-        title: string;
-        dueDate: string | null;
-        status: string;
-        projectId: string;
-        projectName: string | null;
-      }>;
-    };
+    overdueTasks: { severity: "High" | "Medium" | "Low"; count: number; items: CommandTaskItem[] };
     projectsOverBudget: {
       severity: "High" | "Medium" | "Low";
       count: number;
@@ -156,18 +175,7 @@ export default async function DashboardPage() {
         lastUpdateAt: string | null;
       }>;
     };
-    blockedTasks: {
-      severity: "High" | "Medium" | "Low";
-      count: number;
-      items: Array<{
-        id: string;
-        title: string;
-        dueDate: string | null;
-        status: string;
-        projectId: string;
-        projectName: string | null;
-      }>;
-    };
+    blockedTasks: { severity: "High" | "Medium" | "Low"; count: number; items: CommandTaskItem[] };
   };
   const topProjectsBySpend = dashboard.topProjectsBySpend as Array<{
     id: string;
@@ -199,6 +207,16 @@ export default async function DashboardPage() {
     if (severity === "Medium") return "warning";
     return "default";
   }
+
+  const morningTaskLinks = {
+    dueToday: taskSavedViewSummary.shortcuts.find((shortcut) => shortcut.key === "due_today")!,
+    overdue: taskSavedViewSummary.shortcuts.find((shortcut) => shortcut.key === "overdue")!,
+    blocked: taskSavedViewSummary.shortcuts.find((shortcut) => shortcut.key === "blocked")!,
+    openTasks: {
+      href: "/tasks",
+      label: "Open command view" as const,
+    },
+  };
 
   return (
     <div className="space-y-6">
@@ -252,6 +270,54 @@ export default async function DashboardPage() {
           Review stale-update projects
         </Link>
       </div>
+      <Card className="space-y-4 p-6">
+        <div>
+          <p className="text-xs uppercase tracking-[0.25em] text-brand-700">Morning Ops</p>
+          <h2 className="mt-2 font-serif text-3xl font-semibold text-ink">Task Shortcuts</h2>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          {taskSavedViewSummary.shortcuts.map((shortcut) => (
+            <div key={shortcut.key} className="rounded-[1.5rem] border border-slate-200 bg-white/80 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium text-ink">{shortcut.name}</p>
+                  <p className="mt-2 text-sm text-slate-600">{shortcut.description}</p>
+                </div>
+                {shortcut.matchedView ? <Badge tone="success">Saved</Badge> : null}
+              </div>
+              <div className="mt-4">
+                <ButtonLink href={shortcut.href} variant="ghost">
+                  {shortcut.label}
+                </ButtonLink>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+      <Card className="space-y-4 p-6">
+        <div>
+          <p className="text-xs uppercase tracking-[0.25em] text-brand-700">Morning Ops</p>
+          <h2 className="mt-2 font-serif text-3xl font-semibold text-ink">Expense Shortcuts</h2>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          {expenseSavedViewSummary.shortcuts.map((shortcut) => (
+            <div key={shortcut.key} className="rounded-[1.5rem] border border-slate-200 bg-white/80 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium text-ink">{shortcut.name}</p>
+                  <p className="mt-2 text-sm text-slate-600">{shortcut.description}</p>
+                </div>
+                {shortcut.matchedView ? <Badge tone="success">Saved</Badge> : null}
+              </div>
+              <div className="mt-4">
+                <ButtonLink href={shortcut.href} variant="ghost">
+                  {shortcut.label}
+                </ButtonLink>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
       <Card className="space-y-5 p-6">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -265,7 +331,7 @@ export default async function DashboardPage() {
               key: "due-today",
               title: "Tasks Due Today",
               description: "Tasks that need attention before the day ends.",
-              href: tasksHref({ filter: "all", sort: "due_soon" }),
+              command: morningTaskLinks.dueToday,
               count: todayView.tasksDueToday.count,
               content:
                 todayView.tasksDueToday.items.length === 0 ? (
@@ -275,17 +341,7 @@ export default async function DashboardPage() {
                 ) : (
                   <div className="mt-4 space-y-3">
                     {todayView.tasksDueToday.items.map((item) => (
-                      <Link
-                        key={item.id}
-                        href={projectDetailHref(item.projectId)}
-                        className="block rounded-[1.25rem] border border-slate-200 bg-white/80 p-4 transition hover:border-brand-300 hover:shadow-panel"
-                      >
-                        <p className="font-medium text-ink">{item.title}</p>
-                        <p className="mt-2 text-sm text-slate-600">
-                          Project: {item.projectName || "Unknown project"}
-                        </p>
-                        <p className="mt-1 text-sm text-slate-600">Due: {formatDate(item.dueDate)}</p>
-                      </Link>
+                      <TaskOperationalCard key={item.id} item={item} />
                     ))}
                   </div>
                 ),
@@ -294,7 +350,7 @@ export default async function DashboardPage() {
               key: "overdue",
               title: "Overdue Tasks",
               description: "Carry-over work that is already past due.",
-              href: tasksHref({ filter: "overdue", sort: "overdue_first" }),
+              command: morningTaskLinks.overdue,
               count: todayView.overdueTasks.count,
               content:
                 todayView.overdueTasks.items.length === 0 ? (
@@ -304,17 +360,7 @@ export default async function DashboardPage() {
                 ) : (
                   <div className="mt-4 space-y-3">
                     {todayView.overdueTasks.items.map((item) => (
-                      <Link
-                        key={item.id}
-                        href={projectDetailHref(item.projectId)}
-                        className="block rounded-[1.25rem] border border-slate-200 bg-white/80 p-4 transition hover:border-brand-300 hover:shadow-panel"
-                      >
-                        <p className="font-medium text-ink">{item.title}</p>
-                        <p className="mt-2 text-sm text-slate-600">
-                          Project: {item.projectName || "Unknown project"}
-                        </p>
-                        <p className="mt-1 text-sm text-slate-600">Due: {formatDate(item.dueDate)}</p>
-                      </Link>
+                      <TaskOperationalCard key={item.id} item={item} />
                     ))}
                   </div>
                 ),
@@ -323,7 +369,7 @@ export default async function DashboardPage() {
               key: "blocked",
               title: "Blocked Tasks",
               description: "Work that needs unblockers before progress can resume.",
-              href: tasksHref({ filter: "blocked", sort: "overdue_first" }),
+              command: morningTaskLinks.blocked,
               count: todayView.blockedTasks.count,
               content:
                 todayView.blockedTasks.items.length === 0 ? (
@@ -333,17 +379,7 @@ export default async function DashboardPage() {
                 ) : (
                   <div className="mt-4 space-y-3">
                     {todayView.blockedTasks.items.map((item) => (
-                      <Link
-                        key={item.id}
-                        href={projectDetailHref(item.projectId)}
-                        className="block rounded-[1.25rem] border border-slate-200 bg-white/80 p-4 transition hover:border-brand-300 hover:shadow-panel"
-                      >
-                        <p className="font-medium text-ink">{item.title}</p>
-                        <p className="mt-2 text-sm text-slate-600">
-                          Project: {item.projectName || "Unknown project"}
-                        </p>
-                        <p className="mt-1 text-sm text-slate-600">Due: {formatDate(item.dueDate)}</p>
-                      </Link>
+                      <TaskOperationalCard key={item.id} item={item} />
                     ))}
                   </div>
                 ),
@@ -352,7 +388,10 @@ export default async function DashboardPage() {
               key: "stale-projects",
               title: "Projects With No Updates In 3 Days",
               description: "Projects that may need a fresh field update or status check-in.",
-              href: projectsHref({ filter: "At Risk", sort: "stalest_updates" }),
+              command: {
+                href: projectsHref({ filter: "At Risk", sort: "stalest_updates" }),
+                label: "Open command view",
+              },
               count: todayView.staleProjects.count,
               content:
                 todayView.staleProjects.items.length === 0 ? (
@@ -362,17 +401,7 @@ export default async function DashboardPage() {
                 ) : (
                   <div className="mt-4 space-y-3">
                     {todayView.staleProjects.items.map((item) => (
-                      <Link
-                        key={item.id}
-                        href={projectDetailHref(item.id)}
-                        className="block rounded-[1.25rem] border border-slate-200 bg-white/80 p-4 transition hover:border-brand-300 hover:shadow-panel"
-                      >
-                        <p className="font-medium text-ink">{item.name}</p>
-                        <p className="mt-2 text-sm text-slate-600">
-                          Last update: {formatDateTime(item.lastUpdateAt)}
-                        </p>
-                        <p className="mt-1 text-sm text-slate-600">Overdue tasks: {item.overdueTasks}</p>
-                      </Link>
+                      <StaleProjectOperationalCard key={item.id} item={item} />
                     ))}
                   </div>
                 ),
@@ -380,8 +409,11 @@ export default async function DashboardPage() {
             {
               key: "updates-today",
               title: "Recent Field Updates From Today",
-              description: "Today’s newest project activity and site notes.",
-              href: "/projects",
+              description: "Today's newest project activity and site notes.",
+              command: {
+                href: "/projects",
+                label: "Open command view",
+              },
               count: todayView.recentFieldUpdates.count,
               content:
                 todayView.recentFieldUpdates.items.length === 0 ? (
@@ -420,8 +452,8 @@ export default async function DashboardPage() {
               </div>
               {group.content}
               <div className="mt-4">
-                <ButtonLink href={group.href} variant="ghost">
-                  Open command view
+                <ButtonLink href={group.command.href} variant="ghost">
+                  {group.command.label}
                 </ButtonLink>
               </div>
             </div>
@@ -441,7 +473,7 @@ export default async function DashboardPage() {
               key: "overdue",
               title: "Overdue Tasks",
               description: "Incomplete tasks whose due date has already passed.",
-              href: tasksHref({ filter: "overdue", sort: "overdue_first" }),
+              command: morningTaskLinks.overdue,
               severity: attentionCenter.overdueTasks.severity,
               count: attentionCenter.overdueTasks.count,
               content:
@@ -452,17 +484,7 @@ export default async function DashboardPage() {
                 ) : (
                   <div className="mt-4 space-y-3">
                     {attentionCenter.overdueTasks.items.map((item) => (
-                      <Link
-                        key={item.id}
-                        href={projectDetailHref(item.projectId)}
-                        className="block rounded-[1.25rem] border border-slate-200 bg-white/80 p-4 transition hover:border-brand-300 hover:shadow-panel"
-                      >
-                        <p className="font-medium text-ink">{item.title}</p>
-                        <p className="mt-2 text-sm text-slate-600">
-                          Project: {item.projectName || "Unknown project"}
-                        </p>
-                        <p className="mt-1 text-sm text-slate-600">Due: {formatDate(item.dueDate)}</p>
-                      </Link>
+                      <TaskOperationalCard key={item.id} item={item} />
                     ))}
                   </div>
                 ),
@@ -471,7 +493,7 @@ export default async function DashboardPage() {
               key: "blocked",
               title: "Blocked Tasks",
               description: "Tasks flagged as blocked and likely preventing progress.",
-              href: tasksHref({ filter: "blocked", sort: "overdue_first" }),
+              command: morningTaskLinks.blocked,
               severity: attentionCenter.blockedTasks.severity,
               count: attentionCenter.blockedTasks.count,
               content:
@@ -482,17 +504,7 @@ export default async function DashboardPage() {
                 ) : (
                   <div className="mt-4 space-y-3">
                     {attentionCenter.blockedTasks.items.map((item) => (
-                      <Link
-                        key={item.id}
-                        href={projectDetailHref(item.projectId)}
-                        className="block rounded-[1.25rem] border border-slate-200 bg-white/80 p-4 transition hover:border-brand-300 hover:shadow-panel"
-                      >
-                        <p className="font-medium text-ink">{item.title}</p>
-                        <p className="mt-2 text-sm text-slate-600">
-                          Project: {item.projectName || "Unknown project"}
-                        </p>
-                        <p className="mt-1 text-sm text-slate-600">Due: {formatDate(item.dueDate)}</p>
-                      </Link>
+                      <TaskOperationalCard key={item.id} item={item} />
                     ))}
                   </div>
                 ),
@@ -501,7 +513,10 @@ export default async function DashboardPage() {
               key: "budget",
               title: "Projects Over Budget",
               description: "Projects where current expense totals exceed planned budget.",
-              href: projectsHref({ filter: "Needs Attention", sort: "highest_spend" }),
+              command: {
+                href: projectsHref({ filter: "Needs Attention", sort: "highest_spend" }),
+                label: "Open command view",
+              },
               severity: attentionCenter.projectsOverBudget.severity,
               count: attentionCenter.projectsOverBudget.count,
               content:
@@ -531,7 +546,10 @@ export default async function DashboardPage() {
               key: "stale",
               title: "Projects With No Updates In 7 Days",
               description: "Projects that may be drifting without recent field activity.",
-              href: projectsHref({ filter: "At Risk", sort: "stalest_updates" }),
+              command: {
+                href: projectsHref({ filter: "At Risk", sort: "stalest_updates" }),
+                label: "Open command view",
+              },
               severity: attentionCenter.staleProjects.severity,
               count: attentionCenter.staleProjects.count,
               content:
@@ -542,17 +560,15 @@ export default async function DashboardPage() {
                 ) : (
                   <div className="mt-4 space-y-3">
                     {attentionCenter.staleProjects.items.map((item) => (
-                      <Link
+                      <StaleProjectOperationalCard
                         key={item.id}
-                        href={projectDetailHref(item.id)}
-                        className="block rounded-[1.25rem] border border-slate-200 bg-white/80 p-4 transition hover:border-brand-300 hover:shadow-panel"
-                      >
-                        <p className="font-medium text-ink">{item.name}</p>
-                        <p className="mt-2 text-sm text-slate-600">
-                          Last update: {formatDateTime(item.lastUpdateAt)}
-                        </p>
-                        <p className="mt-1 text-sm text-slate-600">Overdue tasks: {item.overdueTasks}</p>
-                      </Link>
+                        item={{
+                          id: item.id,
+                          name: item.name,
+                          overdueTasks: item.overdueTasks,
+                          lastUpdateAt: item.lastUpdateAt,
+                        }}
+                      />
                     ))}
                   </div>
                 ),
@@ -571,8 +587,8 @@ export default async function DashboardPage() {
               </div>
               {group.content}
               <div className="mt-4">
-                <ButtonLink href={group.href} variant="ghost">
-                  Open command view
+                <ButtonLink href={group.command.href} variant="ghost">
+                  {group.command.label}
                 </ButtonLink>
               </div>
             </div>
@@ -586,8 +602,8 @@ export default async function DashboardPage() {
               <p className="text-xs uppercase tracking-[0.25em] text-brand-700">Task Summary</p>
               <h2 className="mt-2 font-serif text-3xl font-semibold text-ink">Open Tasks</h2>
             </div>
-            <ButtonLink href={tasksHref({ filter: "all", sort: "due_soon" })} variant="ghost">
-              View Tasks
+            <ButtonLink href={morningTaskLinks.openTasks.href} variant="ghost">
+              {morningTaskLinks.openTasks.label}
             </ButtonLink>
           </div>
           {openTasks.length === 0 ? (
@@ -595,31 +611,24 @@ export default async function DashboardPage() {
               title="No open tasks"
               description="Everything is clear right now."
               action={
-                <ButtonLink href={tasksHref({ filter: "all", sort: "due_soon" })} variant="secondary">
-                  Open tasks
+                <ButtonLink href={morningTaskLinks.openTasks.href} variant="secondary">
+                  {morningTaskLinks.openTasks.label}
                 </ButtonLink>
               }
             />
           ) : (
             <div className="space-y-4">
-              {openTasks.slice(0, 6).map((task) => (
-                <Link
-                  key={task.id}
-                  href={task.status === "blocked" ? tasksHref({ filter: "blocked", sort: "overdue_first" }) : isOverdue(task.due_date) ? tasksHref({ filter: "overdue", sort: "overdue_first" }) : tasksHref({ filter: "all", sort: "due_soon" })}
-                  className="block rounded-[1.5rem] border border-slate-200 bg-white/80 p-4 transition hover:border-brand-300 hover:shadow-panel"
-                >
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h3 className="font-medium text-ink">{task.title}</h3>
-                    <Badge tone={task.status === "blocked" ? "warning" : "default"}>
-                      {task.status.replace("_", " ")}
-                    </Badge>
-                  </div>
-                  <p className="mt-2 text-sm text-slate-600">
-                    Project: {relationName(task.project) || "Unknown project"}
-                  </p>
-                  <p className="mt-1 text-sm text-slate-600">Due: {formatDate(task.due_date)}</p>
-                </Link>
-              ))}
+              {openTasks.slice(0, 6).map((task) => {
+                const item = {
+                  id: task.id,
+                  title: task.title,
+                  dueDate: task.due_date,
+                  status: task.status,
+                  projectId: task.project_id,
+                  projectName: relationName(task.project),
+                };
+                return <TaskOperationalCard key={task.id} item={item} />;
+              })}
             </div>
           )}
         </Card>
@@ -734,12 +743,16 @@ export default async function DashboardPage() {
           ) : (
             <div className="space-y-4">
               {topVendorsBySpend.map((vendor) => (
-                <div key={vendor.id} className="rounded-[1.5rem] border border-slate-200 bg-white/80 p-4">
+                <Link
+                  key={vendor.id}
+                  href={expensesHref({ vendorId: vendor.id })}
+                  className="block rounded-[1.5rem] border border-slate-200 bg-white/80 p-4 transition hover:border-brand-300 hover:shadow-panel"
+                >
                   <div className="flex items-center justify-between gap-3">
                     <h3 className="font-medium text-ink">{vendor.name}</h3>
                     <Badge>{currency(vendor.spend)}</Badge>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}
@@ -762,15 +775,16 @@ export default async function DashboardPage() {
           ) : (
             <div className="space-y-4">
               {highestExpenseCategories.map((category) => (
-                <div
+                <Link
                   key={category.category}
-                  className="rounded-[1.5rem] border border-slate-200 bg-white/80 p-4"
+                  href={expensesHref({ category: category.category })}
+                  className="block rounded-[1.5rem] border border-slate-200 bg-white/80 p-4 transition hover:border-brand-300 hover:shadow-panel"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <h3 className="font-medium text-ink">{category.category}</h3>
                     <Badge>{currency(category.spend)}</Badge>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}

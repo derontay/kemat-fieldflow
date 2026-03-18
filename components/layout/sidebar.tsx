@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Bookmark,
   BookTemplate,
   Building2,
   CreditCard,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import { APP_NAME } from "@/lib/config";
 import { cn } from "@/lib/utils";
+import type { PinnedSavedViewLink } from "@/types/database";
 
 const links = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -25,7 +27,13 @@ const links = [
   { href: "/settings", label: "Settings", icon: CreditCard },
 ];
 
-export function Sidebar({ organizationName }: { organizationName: string }) {
+export function Sidebar({
+  organizationName,
+  pinnedSavedViews,
+}: {
+  organizationName: string;
+  pinnedSavedViews: PinnedSavedViewLink[];
+}) {
   const pathname = usePathname();
 
   return (
@@ -58,6 +66,49 @@ export function Sidebar({ organizationName }: { organizationName: string }) {
           );
         })}
       </nav>
+      {pinnedSavedViews.length > 0 ? (
+        <div className="mt-8 border-t border-slate-200 pt-6">
+          <div className="mb-3 flex items-center gap-2 px-1">
+            <Bookmark className="h-4 w-4 text-brand-700" />
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Morning Ops</p>
+          </div>
+          <div className="space-y-2">
+            {pinnedSavedViews.map((view) => {
+              const isActive = pathname === view.href.split("?")[0];
+
+              return (
+                <Link
+                  key={view.id}
+                  href={view.href}
+                  className={cn(
+                    "block rounded-2xl border px-4 py-3 transition",
+                    view.is_default
+                      ? "border-brand-200 bg-brand-50/70"
+                      : "border-slate-200 bg-slate-50/80 hover:bg-sand",
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p
+                      className={cn(
+                        "text-sm font-medium",
+                        isActive ? "text-ink" : "text-slate-700",
+                      )}
+                    >
+                      {view.name}
+                    </p>
+                    <span className="rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium uppercase tracking-[0.15em] text-slate-500">
+                      {view.type === "tasks" ? "Task" : "Expense"}
+                    </span>
+                  </div>
+                  {view.is_default ? (
+                    <p className="mt-2 text-xs uppercase tracking-[0.15em] text-brand-700">Default</p>
+                  ) : null}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
     </aside>
   );
 }

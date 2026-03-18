@@ -3,6 +3,12 @@ import { Badge, ButtonLink, Card, EmptyState } from "@/components/ui";
 import { getVendorIntelligence } from "@/lib/data";
 import { currency, formatDate } from "@/lib/utils";
 
+function expensesHref(vendorId: string) {
+  const params = new URLSearchParams();
+  params.set("vendorId", vendorId);
+  return `/expenses?${params.toString()}`;
+}
+
 export default async function VendorsPage() {
   const vendors = await getVendorIntelligence();
 
@@ -72,6 +78,11 @@ export default async function VendorsPage() {
                 </div>
                 <div className="rounded-[1.5rem] bg-sand/70 p-4 text-sm text-slate-700">
                   {vendor.notes || "No notes added yet."}
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <ButtonLink href={expensesHref(vendor.id)} variant="ghost">
+                    View Vendor Expenses
+                  </ButtonLink>
                 </div>
               </Card>
             ))}

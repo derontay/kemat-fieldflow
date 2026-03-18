@@ -216,6 +216,7 @@ export async function updateTaskStatusAction(formData: FormData) {
   }
 
   revalidatePath("/tasks");
+  revalidatePath("/dashboard");
   revalidatePath(`/tasks/${taskId}/edit`);
   if (projectId) revalidatePath(`/projects/${projectId}`);
 }
@@ -261,6 +262,7 @@ export async function createFieldUpdateAction(formData: FormData) {
   }
 
   revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/dashboard");
 }
 
 export async function deleteFieldUpdateAction(formData: FormData) {

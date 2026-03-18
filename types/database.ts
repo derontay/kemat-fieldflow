@@ -87,3 +87,59 @@ export interface Vendor {
   notes: string | null;
   created_at: string;
 }
+
+export type SavedViewType = "tasks" | "expenses";
+
+export interface SavedViewQueryState {
+  filter?: string;
+  sort?: string;
+  q?: string;
+  projectId?: string;
+  vendorId?: string;
+  category?: string;
+}
+
+export interface SavedView {
+  id: string;
+  organization_id: string;
+  name: string;
+  type: SavedViewType;
+  is_pinned: boolean;
+  is_default: boolean;
+  query_state: SavedViewQueryState;
+  created_at: string;
+}
+
+export interface TaskSavedViewShortcut {
+  key: "due_today" | "overdue" | "blocked";
+  baseName: string;
+  name: string;
+  description: string;
+  filter: string;
+  sort: string;
+  href: string;
+  fallbackHref: string;
+  matchedView: SavedView | null;
+  label: "Open saved view" | "Open command view";
+}
+
+export interface ExpenseSavedViewShortcut {
+  key: "recent" | "with_vendor" | "high_cost";
+  baseName: string;
+  name: string;
+  description: string;
+  filter: string;
+  sort: string;
+  href: string;
+  fallbackHref: string;
+  matchedView: SavedView | null;
+  label: "Open saved view" | "Open command view";
+}
+
+export interface PinnedSavedViewLink {
+  id: string;
+  type: SavedViewType;
+  name: string;
+  href: string;
+  is_default: boolean;
+}

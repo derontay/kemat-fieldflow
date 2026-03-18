@@ -94,6 +94,8 @@ The current automated tests are intentionally lightweight and focus on utility/e
 
 - `docs/launch-readiness.md`
 - `docs/manual-smoke-checklist.md`
+- `docs/migrations.md`
+- `docs/deploy.md`
 
 ## Supabase Setup
 
@@ -106,12 +108,17 @@ The current automated tests are intentionally lightweight and focus on utility/e
 
 ## Migration Order
 
-Run these SQL migrations in order:
+Run SQL migrations in repo order. For the current app, the important ones are:
 
 1. `supabase/migrations/20260317040000_phase_3a_schema.sql`
-2. `supabase/migrations/20260318010000_phase_8_field_updates.sql`
+2. `supabase/migrations/20260317123000_task_templates.sql`
+3. `supabase/migrations/20260317160000_saved_views.sql`
+4. `supabase/migrations/20260317170000_saved_views_priority.sql`
+5. `supabase/migrations/20260318010000_phase_8_field_updates.sql`
 
 Apply them in Supabase SQL Editor or via the Supabase CLI migrations flow.
+
+Before deploy, verify that the Supabase project you migrated is the same project referenced by `NEXT_PUBLIC_SUPABASE_URL`.
 
 ## Deployment Readiness Notes
 
@@ -141,6 +148,12 @@ NEXT_PUBLIC_APP_URL=https://kemat-fieldflow.vercel.app
 6. After deploy, go back to Supabase Auth settings and confirm the production callback URL is allowed:
    - `https://kemat-fieldflow.vercel.app/auth/callback`
 7. Re-deploy if you changed environment variables after the first build.
+8. Verify `/tasks` and `/expenses` after login, and confirm saved view pin/default controls appear.
+
+For the full schema/deploy workflow, use:
+
+- `docs/migrations.md`
+- `docs/deploy.md`
 
 ## Missing Production Requirements
 
