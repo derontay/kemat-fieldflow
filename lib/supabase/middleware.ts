@@ -32,7 +32,9 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isAuthRoute = pathname === "/login" || pathname === "/signup";
   const isResetPasswordRoute = pathname === "/reset-password";
-  const isPublicRoute = isAuthRoute || isResetPasswordRoute || pathname === "/" || pathname.startsWith("/auth/");
+  const isInviteRoute = pathname === "/invite";
+  const isPublicRoute =
+    isAuthRoute || isResetPasswordRoute || isInviteRoute || pathname === "/" || pathname.startsWith("/auth/");
   const isProtectedRoute = !isPublicRoute && !pathname.startsWith("/api");
 
   if (!user && isProtectedRoute) {

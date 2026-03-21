@@ -261,16 +261,20 @@ export default async function DashboardPage() {
             </div>
             <div className="rounded-[1.5rem] border border-slate-200 bg-white/80 p-4">
               <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Step 3</p>
-              <p className="mt-2 font-medium text-ink">Save this as your first view</p>
+              <p className="mt-2 font-medium text-ink">Invite your team</p>
               <p className="mt-2 text-sm text-slate-600">
-                On the Tasks page, use the recommended views area to save Due Today so Morning Ops feels instant tomorrow.
+                Add a teammate so the workspace becomes collaborative and shared Morning Ops views start to matter.
               </p>
               <div className="mt-4">
-                <ButtonLink href="/tasks" variant="ghost">
-                  Go to saved views
+                <ButtonLink href="/team" variant="ghost">
+                  Open Team
                 </ButtonLink>
               </div>
             </div>
+          </div>
+          <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-sand/60 p-4 text-sm text-slate-700">
+            After your first task exists, head to <span className="font-medium text-ink">Tasks</span> and save the
+            Due Today command view so Morning Ops opens the right list every morning.
           </div>
         </Card>
       ) : null}

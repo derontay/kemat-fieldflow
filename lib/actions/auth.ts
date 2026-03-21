@@ -8,16 +8,22 @@ function cleanValue(value: FormDataEntryValue | null) {
   return String(value ?? "").trim();
 }
 
+function getSafeNext(formData: FormData) {
+  const next = cleanValue(formData.get("next"));
+  return next.startsWith("/") ? next : "/dashboard";
+}
+
 export async function authAction(formData: FormData) {
   const supabase = await createClient();
   const mode = String(formData.get("mode") || "login");
   const email = cleanValue(formData.get("email")).toLowerCase();
   const password = String(formData.get("password") || "");
   const name = cleanValue(formData.get("name"));
+  const next = getSafeNext(formData);
 
   if (mode === "signup") {
     if (!email || !password) {
-      redirect("/signup?message=Email%20and%20password%20are%20required.");
+      redirect(`/signup?message=Email%20and%20password%20are%20required.&next=${encodeURIComponent(next)}`);
     }
 
     const appUrl = getAppUrl();
@@ -25,20 +31,20 @@ export async function authAction(formData: FormData) {
       email,
       password,
       options: {
-        emailRedirectTo: `${appUrl}/auth/callback`,
+        emailRedirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent(next)}`,
         data: name ? { full_name: name } : undefined,
       },
     });
 
     if (error) {
-      redirect(`/signup?message=${encodeURIComponent(error.message)}`);
+      redirect(`/signup?message=${encodeURIComponent(error.message)}&next=${encodeURIComponent(next)}`);
     }
 
     if (data.session) {
-      redirect("/dashboard");
+      redirect(next);
     }
 
-    redirect("/login?message=Check%20your%20email%20to%20confirm%20your%20account.");
+    redirect(`/login?message=Check%20your%20email%20to%20confirm%20your%20account.&next=${encodeURIComponent(next)}`);
   }
 
   if (mode === "reset-password") {
@@ -59,30 +65,33 @@ export async function authAction(formData: FormData) {
   }
 
   if (!email || !password) {
-    redirect("/login?message=Enter%20your%20email%20address%20and%20password.");
+    redirect(`/login?message=Enter%20your%20email%20address%20and%20password.&next=${encodeURIComponent(next)}`);
   }
 
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    redirect("/login?message=We%20could%20not%20sign%20you%20in.%20Check%20your%20email%20and%20password.");
+    redirect(
+      `/login?message=We%20could%20not%20sign%20you%20in.%20Check%20your%20email%20and%20password.&next=${encodeURIComponent(next)}`,
+    );
   }
 
-  redirect("/dashboard");
+  redirect(next);
 }
 
-export async function signInWithGoogleAction() {
+export async function signInWithGoogleAction(formData: FormData) {
   const supabase = await createClient();
   const appUrl = getAppUrl();
+  const next = getSafeNext(formData);
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent("/dashboard")}`,
+      redirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent(next)}`,
     },
   });
 
   if (error || !data.url) {
-    redirect("/login?message=Google%20sign-in%20is%20currently%20unavailable.");
+    redirect(`/login?message=Google%20sign-in%20is%20currently%20unavailable.&next=${encodeURIComponent(next)}`);
   }
 
   redirect(data.url);

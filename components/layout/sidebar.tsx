@@ -12,6 +12,7 @@ import {
   Receipt,
   SquareCheckBig,
   Truck,
+  Users,
 } from "lucide-react";
 import { APP_NAME } from "@/lib/config";
 import { cn } from "@/lib/utils";
@@ -24,17 +25,26 @@ const links = [
   { href: "/templates", label: "Templates", icon: BookTemplate },
   { href: "/expenses", label: "Expenses", icon: Receipt },
   { href: "/vendors", label: "Vendors", icon: Truck },
+  { href: "/team", label: "Team", icon: Users },
   { href: "/settings", label: "Settings", icon: CreditCard },
 ];
 
 export function Sidebar({
   organizationName,
+  organizationRole,
   pinnedSavedViews,
 }: {
   organizationName: string;
+  organizationRole: "owner" | "admin" | "member";
   pinnedSavedViews: PinnedSavedViewLink[];
 }) {
   const pathname = usePathname();
+  const roleLabel =
+    organizationRole === "owner"
+      ? "Owner"
+      : organizationRole === "admin"
+        ? "Admin"
+        : "Member";
 
   return (
     <aside className="rounded-[2rem] border border-white/70 bg-white/85 p-5 shadow-panel backdrop-blur">
@@ -44,6 +54,9 @@ export function Sidebar({
         </div>
         <p className="mt-4 font-serif text-2xl font-semibold">{APP_NAME}</p>
         <p className="mt-1 text-sm text-slate-500">{organizationName}</p>
+        <div className="mt-3 inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium uppercase tracking-[0.15em] text-slate-600">
+          {roleLabel}
+        </div>
       </div>
       <nav className="space-y-2">
         {links.map(({ href, label, icon: Icon }) => {

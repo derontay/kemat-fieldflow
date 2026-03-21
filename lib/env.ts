@@ -49,6 +49,16 @@ export function getSupabaseAnonKey() {
   return value;
 }
 
+export function getSuperUserEmails() {
+  const configured = (process.env.SUPERUSER_EMAILS ?? "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+
+  const defaults = ["derontay@tricoreva.com"];
+  return Array.from(new Set([...defaults, ...configured]));
+}
+
 export function logSupabaseServerEnvOnce() {
   if (typeof window !== "undefined" || hasLoggedSupabaseServerEnv) {
     return;

@@ -72,7 +72,7 @@ export function Button({
   return (
     <Comp
       className={cn(
-        "inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-medium transition",
+        "inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50",
         variant === "primary" && "bg-ink text-white hover:bg-slate-800",
         variant === "secondary" && "bg-brand-600 text-white hover:bg-brand-700",
         variant === "ghost" && "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50",

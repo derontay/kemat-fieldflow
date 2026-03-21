@@ -6,6 +6,31 @@ export interface Organization {
   id: string;
   name: string;
   slug: string;
+  plan: "free" | "pro";
+}
+
+export interface OrganizationMember {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  full_name: string | null;
+  email: string | null;
+  role: "owner" | "admin" | "member";
+  created_at: string;
+}
+
+export interface OrganizationInvite {
+  id: string;
+  organization_id: string;
+  email: string | null;
+  role: "admin" | "member";
+  token: string;
+  invited_by: string;
+  inviter_email?: string | null;
+  expires_at: string;
+  accepted_at: string | null;
+  created_at: string;
+  organization_name?: string;
 }
 
 export interface Project {

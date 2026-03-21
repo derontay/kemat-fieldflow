@@ -6,9 +6,10 @@ import { Button, Card, Field, Input } from "@/components/ui";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ message?: string }>;
+  searchParams: Promise<{ message?: string; next?: string }>;
 }) {
   const params = await searchParams;
+  const next = params.next?.startsWith("/") ? params.next : "/dashboard";
 
   return (
     <main className="flex min-h-screen items-center justify-center p-6">
@@ -32,6 +33,7 @@ export default async function LoginPage({
           ) : null}
           <form action={authAction} className="mt-6 space-y-4">
             <input type="hidden" name="mode" value="login" />
+            <input type="hidden" name="next" value={next} />
             <Field label="Email Address">
               <Input name="email" type="email" placeholder="you@company.com" required />
             </Field>
@@ -48,6 +50,7 @@ export default async function LoginPage({
             <span className="h-px flex-1 bg-slate-200" />
           </div>
           <form action={signInWithGoogleAction}>
+            <input type="hidden" name="next" value={next} />
             <Button type="submit" variant="secondary" className="w-full">
               Continue with Google
             </Button>
@@ -56,7 +59,7 @@ export default async function LoginPage({
             This app currently supports email-based sign in. Username sign in is not available.
           </p>
           <div className="mt-4 flex items-center justify-between text-sm text-slate-600">
-            <Link href="/signup" className="font-medium text-brand-700">
+            <Link href={`/signup?next=${encodeURIComponent(next)}`} className="font-medium text-brand-700">
               Create account
             </Link>
             <Link href="/reset-password" className="font-medium text-brand-700">

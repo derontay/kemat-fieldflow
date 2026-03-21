@@ -3,7 +3,14 @@ import { authAction } from "@/lib/actions/auth";
 import { APP_NAME } from "@/lib/config";
 import { Button, Card, Field, Input } from "@/components/ui";
 
-export default function SignupPage() {
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ next?: string }>;
+}) {
+  const params = (await searchParams) ?? {};
+  const next = params.next?.startsWith("/") ? params.next : "/dashboard";
+
   return (
     <main className="flex min-h-screen items-center justify-center p-6">
       <div className="grid w-full max-w-5xl gap-8 md:grid-cols-[1.2fr_0.8fr]">
@@ -21,6 +28,7 @@ export default function SignupPage() {
           <p className="mt-2 text-sm text-slate-600">Create an account with email and password.</p>
           <form action={authAction} className="mt-6 space-y-4">
             <input type="hidden" name="mode" value="signup" />
+            <input type="hidden" name="next" value={next} />
             <Field label="Full name">
               <Input name="name" type="text" placeholder="Alex Contractor" required />
             </Field>
@@ -36,7 +44,7 @@ export default function SignupPage() {
           </form>
           <p className="mt-4 text-sm text-slate-600">
             Already have access?{" "}
-            <Link href="/login" className="font-medium text-brand-700">
+            <Link href={`/login?next=${encodeURIComponent(next)}`} className="font-medium text-brand-700">
               Sign in
             </Link>
           </p>

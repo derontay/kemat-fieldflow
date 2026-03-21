@@ -1,11 +1,14 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
+import { getBillingGate, getInviteBillingState, getOrganizationPlanSummary } from "@/lib/billing";
 import {
   type Expense,
   type ExpenseSavedViewShortcut,
   type FieldUpdate,
   type Organization,
+  type OrganizationInvite,
+  type OrganizationMember,
   type PinnedSavedViewLink,
   type Project,
   type SavedView,
@@ -64,6 +67,10 @@ function calculateProjectHealth({
   }
 
   return "On Track" as const;
+}
+
+function isAdminRole(role: string) {
+  return role === "owner" || role === "admin";
 }
 
 type ProjectHealthRow = {
@@ -282,7 +289,7 @@ async function findCurrentOrganization(
 ) {
   const { data, error } = await supabase
     .from("organization_members")
-    .select("organization:organizations(id,name,slug)")
+    .select("role, organization:organizations(id,name,slug,plan)")
     .eq("user_id", userId)
     .limit(1)
     .maybeSingle();
@@ -292,7 +299,15 @@ async function findCurrentOrganization(
   }
 
   const organization = Array.isArray(data?.organization) ? data.organization[0] : data?.organization;
-  return (organization as Organization | undefined) ?? null;
+
+  if (!organization) {
+    return null;
+  }
+
+  return {
+    organization: organization as Organization,
+    role: (data?.role ?? "member") as "owner" | "admin" | "member",
+  };
 }
 
 async function bootstrapOrganizationForUser(
@@ -313,33 +328,172 @@ async function bootstrapOrganizationForUser(
     throw error;
   }
 
-  const organization = await findCurrentOrganization(supabase, user.id);
+  const membership = await findCurrentOrganization(supabase, user.id);
 
-  if (!organization) {
+  if (!membership) {
     throw new Error("Unable to bootstrap organization membership for this user.");
   }
 
-  return organization;
+  return membership;
 }
 
-export const getCurrentOrganization = cache(async (): Promise<{
+export const getOptionalCurrentOrganization = cache(async (options?: {
+  bootstrapIfMissing?: boolean;
+}): Promise<{
   supabase: Awaited<ReturnType<typeof requireUser>>["supabase"];
   userId: string;
-  organization: Organization;
+  organization: Organization | null;
+  role: "owner" | "admin" | "member" | null;
 }> => {
   const { supabase, user } = await requireUser();
-  let organization = await findCurrentOrganization(supabase, user.id);
+  const bootstrapIfMissing = options?.bootstrapIfMissing ?? false;
+  let membership = await findCurrentOrganization(supabase, user.id);
 
-  if (!organization) {
-    organization = await bootstrapOrganizationForUser(supabase, user);
+  if (!membership && bootstrapIfMissing) {
+    membership = await bootstrapOrganizationForUser(supabase, user);
+  }
+
+  if (!membership) {
+    return {
+      supabase,
+      userId: user.id,
+      organization: null,
+      role: null,
+    };
   }
 
   return {
     supabase,
     userId: user.id,
-    organization,
+    organization: membership.organization,
+    role: membership.role,
   };
 });
+
+export const getCurrentOrganization = cache(async (): Promise<{
+  supabase: Awaited<ReturnType<typeof requireUser>>["supabase"];
+  userId: string;
+  organization: Organization;
+  role: "owner" | "admin" | "member";
+}> => {
+  const context = await getOptionalCurrentOrganization();
+
+  if (!context.organization || !context.role) {
+    notFound();
+  }
+
+  return {
+    supabase: context.supabase,
+    userId: context.userId,
+    organization: context.organization,
+    role: context.role,
+  };
+});
+
+export async function createWorkspaceForCurrentUser(name?: string) {
+  const { supabase, user } = await requireUser();
+  const existing = await findCurrentOrganization(supabase, user.id);
+
+  if (existing) {
+    return existing;
+  }
+
+  const workspaceName = (name?.trim() || getDefaultOrganizationName(user)).trim();
+  const baseSlug = slugify(workspaceName) || "workspace";
+  const slug = `${baseSlug}-${user.id.slice(0, 8)}`;
+
+  const { error } = await supabase.from("organizations").insert({
+    name: workspaceName,
+    slug,
+    created_by: user.id,
+  });
+
+  if (error && error.code !== "23505") {
+    throw error;
+  }
+
+  const membership = await findCurrentOrganization(supabase, user.id);
+
+  if (!membership) {
+    throw new Error("Unable to create workspace membership for this user.");
+  }
+
+  return membership;
+}
+
+export async function getOrganizationInvite(token: string) {
+  const trimmedToken = token.trim();
+
+  if (!trimmedToken) {
+    return null;
+  }
+
+  const { supabase } = await requireUser();
+  const { data, error } = await supabase.rpc("get_org_invite_by_token", {
+    invite_token: trimmedToken,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const invite = Array.isArray(data) ? data[0] : data;
+
+  if (!invite) {
+    return null;
+  }
+
+  return {
+    id: invite.id,
+    organization_id: invite.organization_id,
+    organization_name: invite.organization_name,
+    email: invite.email,
+    role: invite.role,
+    token: invite.token,
+    invited_by: invite.invited_by,
+    inviter_email: invite.inviter_email,
+    expires_at: invite.expires_at,
+    accepted_at: invite.accepted_at,
+    created_at: invite.created_at,
+  } as OrganizationInvite;
+}
+
+export async function getTeamData() {
+  const { supabase, organization, userId, role } = await getCurrentOrganization();
+  const canManageMembers = isAdminRole(role);
+
+  const [{ data: members, error: membersError }, invitesResult] = await Promise.all([
+    supabase.rpc("get_org_members_with_emails", {
+      target_org_id: organization.id,
+    }),
+    canManageMembers
+      ? supabase
+          .from("organization_invites")
+          .select("*")
+          .eq("organization_id", organization.id)
+          .is("accepted_at", null)
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (membersError) {
+    throw membersError;
+  }
+
+  if (invitesResult.error) {
+    throw invitesResult.error;
+  }
+
+  return {
+    organization,
+    currentUserId: userId,
+    role,
+    canManageMembers,
+    billing: await getInviteBillingState(),
+    members: (members ?? []) as OrganizationMember[],
+    invites: (invitesResult.data ?? []) as OrganizationInvite[],
+  };
+}
 
 export async function getDashboardData() {
   const { supabase, organization, userId } = await getCurrentOrganization();
@@ -1767,6 +1921,7 @@ export async function getSettingsData() {
       : typeof metadata?.name === "string"
         ? metadata.name
         : null;
+  const [billingGate, planSummary] = await Promise.all([getBillingGate(), getOrganizationPlanSummary()]);
 
   return {
     user: {
@@ -1789,6 +1944,10 @@ export async function getSettingsData() {
     },
     workspaceSummary: {
       projectCount: projectCount ?? 0,
+    },
+    billing: {
+      ...billingGate,
+      ...planSummary,
     },
   };
 }
