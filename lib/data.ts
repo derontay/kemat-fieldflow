@@ -1407,10 +1407,10 @@ export async function getVendorDetail(vendorId: string) {
 }
 
 export async function getSavedViews(type: SavedViewType) {
-  const { supabase, organization } = await getCurrentOrganization();
+  const { supabase, organization, userId } = await getCurrentOrganization();
   const { data, error } = await supabase
     .from("saved_views")
-    .select("id, organization_id, name, type, query_state, created_at, is_pinned, is_default")
+    .select("id, organization_id, user_id, name, type, query_state, created_at, is_pinned, is_default")
     .eq("organization_id", organization.id)
     .eq("type", type)
     .order("created_at", { ascending: false });
@@ -1420,6 +1420,43 @@ export async function getSavedViews(type: SavedViewType) {
       `[saved_views] DB schema is outdated. Apply latest migrations. Falling back to base schema for ${type} because pinned/default columns are missing.`,
       { code: error.code, message: error.message },
     );
+
+    const { data: priorityData, error: priorityError } = await supabase
+      .from("saved_views")
+      .select("id, organization_id, name, type, query_state, created_at, is_pinned, is_default")
+      .eq("organization_id", organization.id)
+      .eq("type", type)
+      .order("created_at", { ascending: false });
+
+    if (!priorityError) {
+      console.info("[saved_views] Loaded priority-aware rows without ownership scope.", {
+        type,
+        supportsPriorityFields: true,
+        supportsOwnershipFields: false,
+        rowCount: priorityData?.length ?? 0,
+        sampleKeys: priorityData?.[0] ? Object.keys(priorityData[0]) : [],
+      });
+
+      return {
+        currentUserId: userId,
+        supportsPriorityFields: true,
+        supportsOwnershipFields: false,
+        views: ((priorityData ?? []) as Array<SavedView & { user_id?: string | null }>)
+          .map((view) => ({
+            ...view,
+            user_id: null,
+            query_state: view.query_state ?? {},
+            is_pinned: Boolean(view.is_pinned),
+            is_default: Boolean(view.is_default),
+          }))
+          .sort(
+            (left, right) =>
+              Number(right.is_pinned) - Number(left.is_pinned) ||
+              Number(right.is_default) - Number(left.is_default) ||
+              new Date(right.created_at).getTime() - new Date(left.created_at).getTime(),
+          ) as SavedView[],
+      };
+    }
 
     const { data: fallbackData, error: fallbackError } = await supabase
       .from("saved_views")
@@ -1435,12 +1472,15 @@ export async function getSavedViews(type: SavedViewType) {
     console.info("[saved_views] Loaded fallback rows.", {
       type,
       supportsPriorityFields: false,
+      supportsOwnershipFields: false,
       rowCount: fallbackData?.length ?? 0,
       sampleKeys: fallbackData?.[0] ? Object.keys(fallbackData[0]) : [],
     });
 
     return {
+      currentUserId: userId,
       supportsPriorityFields: false,
+      supportsOwnershipFields: false,
       views: ((fallbackData ?? []) as Array<{
         id: string;
         organization_id: string;
@@ -1450,6 +1490,7 @@ export async function getSavedViews(type: SavedViewType) {
         created_at: string;
       }>).map((view) => ({
         ...view,
+        user_id: null,
         query_state: view.query_state ?? {},
         is_pinned: false,
         is_default: false,
@@ -1464,15 +1505,19 @@ export async function getSavedViews(type: SavedViewType) {
   console.info("[saved_views] Loaded priority-aware rows.", {
     type,
     supportsPriorityFields: true,
+    supportsOwnershipFields: true,
     rowCount: data?.length ?? 0,
     sampleKeys: data?.[0] ? Object.keys(data[0]) : [],
   });
 
   return {
+    currentUserId: userId,
     supportsPriorityFields: true,
+    supportsOwnershipFields: true,
     views: ((data ?? []) as SavedView[])
       .map((view) => ({
         ...view,
+        user_id: view.user_id ?? null,
         query_state: view.query_state ?? {},
         is_pinned: Boolean(view.is_pinned),
         is_default: Boolean(view.is_default),
@@ -1481,6 +1526,7 @@ export async function getSavedViews(type: SavedViewType) {
         (left, right) =>
           Number(right.is_pinned) - Number(left.is_pinned) ||
           Number(right.is_default) - Number(left.is_default) ||
+          Number(right.user_id === userId) - Number(left.user_id === userId) ||
           new Date(right.created_at).getTime() - new Date(left.created_at).getTime(),
       ),
   };
@@ -1538,7 +1584,14 @@ function buildTaskSavedViewShortcuts(savedViews: SavedView[]): TaskSavedViewShor
       filter: definition.filter,
       sort: definition.sort,
     });
-    const matchedView = savedViews.find((view) => buildTasksSavedViewHref(view.query_state ?? {}) === fallbackHref) ?? null;
+    const matchedView =
+      savedViews.find(
+        (view) => view.user_id !== null && buildTasksSavedViewHref(view.query_state ?? {}) === fallbackHref,
+      ) ??
+      savedViews.find(
+        (view) => view.user_id === null && buildTasksSavedViewHref(view.query_state ?? {}) === fallbackHref,
+      ) ??
+      null;
 
     return {
       key: definition.key,
@@ -1595,7 +1648,13 @@ function buildExpenseSavedViewShortcuts(savedViews: SavedView[]): ExpenseSavedVi
       sort: definition.sort,
     });
     const matchedView =
-      savedViews.find((view) => buildExpensesSavedViewHref(view.query_state ?? {}) === fallbackHref) ?? null;
+      savedViews.find(
+        (view) => view.user_id !== null && buildExpensesSavedViewHref(view.query_state ?? {}) === fallbackHref,
+      ) ??
+      savedViews.find(
+        (view) => view.user_id === null && buildExpensesSavedViewHref(view.query_state ?? {}) === fallbackHref,
+      ) ??
+      null;
 
     return {
       key: definition.key,
@@ -1643,6 +1702,7 @@ export async function getPinnedSavedViewLinks() {
           name: view.name,
           href: buildTasksSavedViewHref(view.query_state ?? {}),
           is_default: view.is_default,
+          scope: view.user_id ? "personal" : "team",
         }))
     : [];
 
@@ -1655,6 +1715,7 @@ export async function getPinnedSavedViewLinks() {
           name: view.name,
           href: buildExpensesSavedViewHref(view.query_state ?? {}),
           is_default: view.is_default,
+          scope: view.user_id ? "personal" : "team",
         }))
     : [];
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { authAction } from "@/lib/actions/auth";
+import { authAction, signInWithGoogleAction } from "@/lib/actions/auth";
 import { APP_NAME } from "@/lib/config";
 import { Button, Card, Field, Input } from "@/components/ui";
 
@@ -24,13 +24,15 @@ export default async function LoginPage({
         </section>
         <Card className="self-center p-8">
           <h2 className="font-serif text-3xl font-semibold">{APP_NAME}</h2>
-          <p className="mt-2 text-sm text-slate-600">Sign in to access the protected workspace.</p>
+          <p className="mt-2 text-sm text-slate-600">
+            Sign in with your email address and password to access the protected workspace.
+          </p>
           {params.message ? (
             <p className="mt-4 rounded-2xl bg-brand-50 px-4 py-3 text-sm text-brand-700">{params.message}</p>
           ) : null}
           <form action={authAction} className="mt-6 space-y-4">
             <input type="hidden" name="mode" value="login" />
-            <Field label="Email">
+            <Field label="Email Address">
               <Input name="email" type="email" placeholder="you@company.com" required />
             </Field>
             <Field label="Password">
@@ -40,6 +42,19 @@ export default async function LoginPage({
               Sign in
             </Button>
           </form>
+          <div className="my-4 flex items-center gap-3 text-xs uppercase tracking-[0.2em] text-slate-400">
+            <span className="h-px flex-1 bg-slate-200" />
+            Or
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
+          <form action={signInWithGoogleAction}>
+            <Button type="submit" variant="secondary" className="w-full">
+              Continue with Google
+            </Button>
+          </form>
+          <p className="mt-4 text-xs text-slate-500">
+            This app currently supports email-based sign in. Username sign in is not available.
+          </p>
           <div className="mt-4 flex items-center justify-between text-sm text-slate-600">
             <Link href="/signup" className="font-medium text-brand-700">
               Create account

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ConfirmButton } from "@/components/confirm-button";
 import { Topbar } from "@/components/layout/topbar";
-import { Badge, Button, ButtonLink, Card, EmptyState, Input } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, EmptyState, Input, Select } from "@/components/ui";
 import { updateTaskStatusAction } from "@/lib/actions/crud";
 import {
   deleteSavedViewAction,
@@ -101,11 +101,86 @@ export default async function TasksPage({
     }),
     getTaskSavedViewSummary(),
   ]);
-  const { views: savedViews, supportsPriorityFields, shortcuts: recommendedViews } = taskSavedViewSummary;
+  const { views: savedViews, supportsPriorityFields, supportsOwnershipFields, shortcuts: recommendedViews, currentUserId } =
+    taskSavedViewSummary;
   const currentHref = buildTasksHref(filter, sort, query, projectId);
   const defaultView = supportsPriorityFields ? savedViews.find((view) => view.is_default) : undefined;
   const defaultHref = defaultView ? savedViewHref(defaultView) : null;
   const isDefaultViewActive = Boolean(defaultHref && defaultHref === currentHref);
+  const dueTodayShortcut = recommendedViews.find((shortcut) => shortcut.key === "due_today");
+  const personalViews = supportsOwnershipFields
+    ? savedViews.filter((view) => view.user_id === currentUserId)
+    : [];
+  const teamViews = supportsOwnershipFields
+    ? savedViews.filter((view) => view.user_id === null)
+    : savedViews;
+
+  function renderSavedView(view: SavedView) {
+    return (
+      <div
+        key={view.id}
+        className={cn(
+          "rounded-[1.25rem] border bg-white p-3",
+          view.is_default
+            ? "border-brand-300 bg-brand-50/40"
+            : view.is_pinned
+              ? "border-slate-300"
+              : "border-slate-200",
+        )}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Link
+            href={savedViewHref(view)}
+            className="text-sm font-medium text-ink transition hover:text-brand-700"
+          >
+            {view.name}
+          </Link>
+          <div className="flex items-center gap-2">
+            {supportsOwnershipFields ? (
+              <Badge tone={view.user_id ? "default" : "success"}>{view.user_id ? "My View" : "Team View"}</Badge>
+            ) : null}
+            {supportsPriorityFields && view.is_pinned ? <Badge>Pinned</Badge> : null}
+            {supportsPriorityFields && view.is_default ? <Badge tone="warning">Default</Badge> : null}
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {supportsPriorityFields ? (
+            <>
+              <form action={view.is_pinned ? unpinSavedViewAction : pinSavedViewAction}>
+                <input type="hidden" name="view_id" value={view.id} />
+                <input type="hidden" name="type" value="tasks" />
+                <Button type="submit" variant="ghost">
+                  {view.is_pinned ? "Unpin" : "Pin"}
+                </Button>
+              </form>
+              <form action={setDefaultSavedViewAction}>
+                <input type="hidden" name="view_id" value={view.id} />
+                <input type="hidden" name="type" value="tasks" />
+                <Button type="submit" variant="ghost">
+                  {view.is_default ? "Default View" : "Set Default"}
+                </Button>
+              </form>
+            </>
+          ) : null}
+          <form action={deleteSavedViewAction}>
+            <input type="hidden" name="view_id" value={view.id} />
+            <input type="hidden" name="type" value="tasks" />
+            <ConfirmButton message="Delete this saved view?" variant="ghost">
+              Delete
+            </ConfirmButton>
+          </form>
+        </div>
+        <form action={renameSavedViewAction} className="mt-3 flex flex-col gap-2 md:flex-row">
+          <input type="hidden" name="view_id" value={view.id} />
+          <input type="hidden" name="type" value="tasks" />
+          <Input name="name" defaultValue={view.name} className="bg-white" />
+          <Button type="submit" variant="ghost">
+            Rename
+          </Button>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -170,6 +245,14 @@ export default async function TasksPage({
             <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Save View</p>
             <div className="flex flex-col gap-3 md:flex-row">
               <Input name="name" placeholder="Name this task view" className="bg-white" />
+              {supportsOwnershipFields ? (
+                <Select name="scope" defaultValue="personal" className="bg-white md:w-auto">
+                  <option value="personal">Personal</option>
+                  <option value="team">Team</option>
+                </Select>
+              ) : (
+                <input type="hidden" name="scope" value="team" />
+              )}
               <Button type="submit" variant="secondary">
                 Save View
               </Button>
@@ -194,6 +277,11 @@ export default async function TasksPage({
                       {recommendedView.matchedView ? (
                         <div className="flex items-center gap-2">
                           <Badge tone="success">Saved</Badge>
+                          {supportsOwnershipFields ? (
+                            <Badge tone={recommendedView.matchedView.user_id ? "default" : "success"}>
+                              {recommendedView.matchedView.user_id ? "My View" : "Team View"}
+                            </Badge>
+                          ) : null}
                           {recommendedView.matchedView.is_pinned ? <Badge>Pinned</Badge> : null}
                           {recommendedView.matchedView.is_default ? <Badge tone="warning">Default</Badge> : null}
                         </div>
@@ -228,75 +316,43 @@ export default async function TasksPage({
               <p className="text-sm text-slate-600">No saved task views yet.</p>
             ) : (
               <div className="space-y-3">
-                {savedViews.map((view) => (
-                  <div
-                    key={view.id}
-                    className={cn(
-                      "rounded-[1.25rem] border bg-white p-3",
-                      view.is_default
-                        ? "border-brand-300 bg-brand-50/40"
-                        : view.is_pinned
-                          ? "border-slate-300"
-                          : "border-slate-200",
-                    )}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <Link
-                        href={savedViewHref(view)}
-                        className="text-sm font-medium text-ink transition hover:text-brand-700"
-                      >
-                        {view.name}
-                      </Link>
-                      {supportsPriorityFields ? (
-                        <div className="flex items-center gap-2">
-                          {view.is_pinned ? <Badge>Pinned</Badge> : null}
-                          {view.is_default ? <Badge tone="warning">Default</Badge> : null}
-                        </div>
-                      ) : null}
+                {supportsOwnershipFields ? (
+                  <>
+                    <div className="space-y-3">
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">My Views</p>
+                      {personalViews.length === 0 ? (
+                        <p className="text-sm text-slate-600">No personal task views yet.</p>
+                      ) : (
+                        personalViews.map(renderSavedView)
+                      )}
                     </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {supportsPriorityFields ? (
-                        <>
-                          <form action={view.is_pinned ? unpinSavedViewAction : pinSavedViewAction}>
-                            <input type="hidden" name="view_id" value={view.id} />
-                            <input type="hidden" name="type" value="tasks" />
-                            <Button type="submit" variant="ghost">
-                              {view.is_pinned ? "Unpin" : "Pin"}
-                            </Button>
-                          </form>
-                          <form action={setDefaultSavedViewAction}>
-                            <input type="hidden" name="view_id" value={view.id} />
-                            <input type="hidden" name="type" value="tasks" />
-                            <Button type="submit" variant="ghost">
-                              {view.is_default ? "Default View" : "Set Default"}
-                            </Button>
-                          </form>
-                        </>
-                      ) : null}
-                      <form action={deleteSavedViewAction}>
-                        <input type="hidden" name="view_id" value={view.id} />
-                        <input type="hidden" name="type" value="tasks" />
-                        <ConfirmButton message="Delete this saved view?" variant="ghost">
-                          Delete
-                        </ConfirmButton>
-                      </form>
+                    <div className="space-y-3">
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Team Views</p>
+                      {teamViews.length === 0 ? (
+                        <p className="text-sm text-slate-600">No team task views yet.</p>
+                      ) : (
+                        teamViews.map(renderSavedView)
+                      )}
                     </div>
-                    <form action={renameSavedViewAction} className="mt-3 flex flex-col gap-2 md:flex-row">
-                      <input type="hidden" name="view_id" value={view.id} />
-                      <input type="hidden" name="type" value="tasks" />
-                      <Input name="name" defaultValue={view.name} className="bg-white" />
-                      <Button type="submit" variant="ghost">
-                        Rename
-                      </Button>
-                    </form>
-                  </div>
-                ))}
+                  </>
+                ) : (
+                  teamViews.map(renderSavedView)
+                )}
               </div>
             )}
-            {!supportsPriorityFields && savedViews.length > 0 ? (
-              <p className="text-xs text-slate-500">
-                Pinning and default views are unavailable until the latest `saved_views` migration is applied.
-              </p>
+            {savedViews.length > 0 && (!supportsPriorityFields || !supportsOwnershipFields) ? (
+              <div className="space-y-1">
+                {!supportsPriorityFields ? (
+                  <p className="text-xs text-slate-500">
+                    Pinning and default views are unavailable until the latest `saved_views` migration is applied.
+                  </p>
+                ) : null}
+                {!supportsOwnershipFields ? (
+                  <p className="text-xs text-slate-500">
+                    Personal and team view grouping are unavailable until the saved view ownership migration is applied.
+                  </p>
+                ) : null}
+              </div>
             ) : null}
           </div>
         </div>
@@ -358,29 +414,54 @@ export default async function TasksPage({
           </div>
         </div>
         {tasks.length === 0 ? (
-          <EmptyState
-            title={
-              query.trim()
-                ? "No tasks match this search"
-                : filter === "all"
-                  ? "No tasks yet"
-                  : "No tasks match this filter"
-            }
-            description={
-              query.trim()
-                ? "Try a different task title, description, filter, or sort view."
-                : filter === "all"
-                  ? projectName
-                    ? "No tasks match this project context yet."
-                    : "Add the first task for one of your projects."
-                  : "Try a different status filter or sort view."
-            }
-            action={
-              <ButtonLink href="/tasks/new" variant="secondary">
-                Create your first task
-              </ButtonLink>
-            }
-          />
+          <div className="space-y-4">
+            {filter === "all" && !query.trim() && !projectName ? (
+              <Card className="space-y-4 border border-dashed border-brand-300 bg-brand-50/40 p-5">
+                <div>
+                  <p className="text-sm font-medium text-ink">
+                    No tasks yet. Create one to start your Morning Ops workflow.
+                  </p>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Once tasks exist, Morning Ops shows what is due today, what is overdue, and what to review first.
+                    You can also save a Due Today view so the right command view is one click away.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <ButtonLink href="/tasks/new" variant="secondary">
+                    Create Task
+                  </ButtonLink>
+                  {dueTodayShortcut ? (
+                    <ButtonLink href={dueTodayShortcut.href} variant="ghost">
+                      {dueTodayShortcut.matchedView ? "Open saved Due Today view" : "Preview Due Today view"}
+                    </ButtonLink>
+                  ) : null}
+                </div>
+              </Card>
+            ) : null}
+            <EmptyState
+              title={
+                query.trim()
+                  ? "No tasks match this search"
+                  : filter === "all"
+                    ? "No tasks yet"
+                    : "No tasks match this filter"
+              }
+              description={
+                query.trim()
+                  ? "Try a different task title, description, filter, or sort view."
+                  : filter === "all"
+                    ? projectName
+                      ? "No tasks match this project context yet."
+                      : "Add the first task for one of your projects."
+                    : "Try a different status filter or sort view."
+              }
+              action={
+                <ButtonLink href="/tasks/new" variant="secondary">
+                  Create your first task
+                </ButtonLink>
+              }
+            />
+          </div>
         ) : (
           <div className="space-y-4">
             {tasks.map((task) => (

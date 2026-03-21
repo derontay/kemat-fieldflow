@@ -102,6 +102,7 @@ export interface SavedViewQueryState {
 export interface SavedView {
   id: string;
   organization_id: string;
+  user_id: string | null;
   name: string;
   type: SavedViewType;
   is_pinned: boolean;
@@ -142,4 +143,5 @@ export interface PinnedSavedViewLink {
   name: string;
   href: string;
   is_default: boolean;
+  scope: "personal" | "team";
 }

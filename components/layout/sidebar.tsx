@@ -100,9 +100,14 @@ export function Sidebar({
                       {view.type === "tasks" ? "Task" : "Expense"}
                     </span>
                   </div>
-                  {view.is_default ? (
-                    <p className="mt-2 text-xs uppercase tracking-[0.15em] text-brand-700">Default</p>
-                  ) : null}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span className="text-xs uppercase tracking-[0.15em] text-slate-500">
+                      {view.scope === "personal" ? "My View" : "Team View"}
+                    </span>
+                    {view.is_default ? (
+                      <span className="text-xs uppercase tracking-[0.15em] text-brand-700">Default</span>
+                    ) : null}
+                  </div>
                 </Link>
               );
             })}

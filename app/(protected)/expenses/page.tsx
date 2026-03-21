@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ConfirmButton } from "@/components/confirm-button";
 import { Topbar } from "@/components/layout/topbar";
-import { Badge, Button, ButtonLink, Card, EmptyState, Input } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, EmptyState, Input, Select } from "@/components/ui";
 import {
   deleteSavedViewAction,
   pinSavedViewAction,
@@ -95,11 +95,85 @@ export default async function ExpensesPage({
       }),
       getExpenseSavedViewSummary(),
     ]);
-  const { views: savedViews, supportsPriorityFields, shortcuts: recommendedViews } = expenseSavedViewSummary;
+  const { views: savedViews, supportsPriorityFields, supportsOwnershipFields, shortcuts: recommendedViews, currentUserId } =
+    expenseSavedViewSummary;
   const currentHref = buildExpensesHref(filter, sort, query, projectId, vendorId, category);
   const defaultView = supportsPriorityFields ? savedViews.find((view) => view.is_default) : undefined;
   const defaultHref = defaultView ? savedViewHref(defaultView) : null;
   const isDefaultViewActive = Boolean(defaultHref && defaultHref === currentHref);
+  const personalViews = supportsOwnershipFields
+    ? savedViews.filter((view) => view.user_id === currentUserId)
+    : [];
+  const teamViews = supportsOwnershipFields
+    ? savedViews.filter((view) => view.user_id === null)
+    : savedViews;
+
+  function renderSavedView(view: SavedView) {
+    return (
+      <div
+        key={view.id}
+        className={cn(
+          "rounded-[1.25rem] border bg-white p-3",
+          view.is_default
+            ? "border-brand-300 bg-brand-50/40"
+            : view.is_pinned
+              ? "border-slate-300"
+              : "border-slate-200",
+        )}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Link
+            href={savedViewHref(view)}
+            className="text-sm font-medium text-ink transition hover:text-brand-700"
+          >
+            {view.name}
+          </Link>
+          <div className="flex items-center gap-2">
+            {supportsOwnershipFields ? (
+              <Badge tone={view.user_id ? "default" : "success"}>{view.user_id ? "My View" : "Team View"}</Badge>
+            ) : null}
+            {supportsPriorityFields && view.is_pinned ? <Badge>Pinned</Badge> : null}
+            {supportsPriorityFields && view.is_default ? <Badge tone="warning">Default</Badge> : null}
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {supportsPriorityFields ? (
+            <>
+              <form action={view.is_pinned ? unpinSavedViewAction : pinSavedViewAction}>
+                <input type="hidden" name="view_id" value={view.id} />
+                <input type="hidden" name="type" value="expenses" />
+                <Button type="submit" variant="ghost">
+                  {view.is_pinned ? "Unpin" : "Pin"}
+                </Button>
+              </form>
+              <form action={setDefaultSavedViewAction}>
+                <input type="hidden" name="view_id" value={view.id} />
+                <input type="hidden" name="type" value="expenses" />
+                <Button type="submit" variant="ghost">
+                  {view.is_default ? "Default View" : "Set Default"}
+                </Button>
+              </form>
+            </>
+          ) : null}
+          <form action={deleteSavedViewAction}>
+            <input type="hidden" name="view_id" value={view.id} />
+            <input type="hidden" name="type" value="expenses" />
+            <ConfirmButton message="Delete this saved view?" variant="ghost">
+              Delete
+            </ConfirmButton>
+          </form>
+        </div>
+        <form action={renameSavedViewAction} className="mt-3 flex flex-col gap-2 md:flex-row">
+          <input type="hidden" name="view_id" value={view.id} />
+          <input type="hidden" name="type" value="expenses" />
+          <Input name="name" defaultValue={view.name} className="bg-white" />
+          <Button type="submit" variant="ghost">
+            Rename
+          </Button>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -182,6 +256,14 @@ export default async function ExpensesPage({
             <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Save View</p>
             <div className="flex flex-col gap-3 md:flex-row">
               <Input name="name" placeholder="Name this expense view" className="bg-white" />
+              {supportsOwnershipFields ? (
+                <Select name="scope" defaultValue="personal" className="bg-white md:w-auto">
+                  <option value="personal">Personal</option>
+                  <option value="team">Team</option>
+                </Select>
+              ) : (
+                <input type="hidden" name="scope" value="team" />
+              )}
               <Button type="submit" variant="secondary">
                 Save View
               </Button>
@@ -201,6 +283,11 @@ export default async function ExpensesPage({
                       {recommendedView.matchedView ? (
                         <div className="flex items-center gap-2">
                           <Badge tone="success">Saved</Badge>
+                          {supportsOwnershipFields ? (
+                            <Badge tone={recommendedView.matchedView.user_id ? "default" : "success"}>
+                              {recommendedView.matchedView.user_id ? "My View" : "Team View"}
+                            </Badge>
+                          ) : null}
                           {recommendedView.matchedView.is_pinned ? <Badge>Pinned</Badge> : null}
                           {recommendedView.matchedView.is_default ? <Badge tone="warning">Default</Badge> : null}
                         </div>
@@ -235,75 +322,43 @@ export default async function ExpensesPage({
               <p className="text-sm text-slate-600">No saved expense views yet.</p>
             ) : (
               <div className="space-y-3">
-                {savedViews.map((view) => (
-                  <div
-                    key={view.id}
-                    className={cn(
-                      "rounded-[1.25rem] border bg-white p-3",
-                      view.is_default
-                        ? "border-brand-300 bg-brand-50/40"
-                        : view.is_pinned
-                          ? "border-slate-300"
-                          : "border-slate-200",
-                    )}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <Link
-                        href={savedViewHref(view)}
-                        className="text-sm font-medium text-ink transition hover:text-brand-700"
-                      >
-                        {view.name}
-                      </Link>
-                      {supportsPriorityFields ? (
-                        <div className="flex items-center gap-2">
-                          {view.is_pinned ? <Badge>Pinned</Badge> : null}
-                          {view.is_default ? <Badge tone="warning">Default</Badge> : null}
-                        </div>
-                      ) : null}
+                {supportsOwnershipFields ? (
+                  <>
+                    <div className="space-y-3">
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">My Views</p>
+                      {personalViews.length === 0 ? (
+                        <p className="text-sm text-slate-600">No personal expense views yet.</p>
+                      ) : (
+                        personalViews.map(renderSavedView)
+                      )}
                     </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {supportsPriorityFields ? (
-                        <>
-                          <form action={view.is_pinned ? unpinSavedViewAction : pinSavedViewAction}>
-                            <input type="hidden" name="view_id" value={view.id} />
-                            <input type="hidden" name="type" value="expenses" />
-                            <Button type="submit" variant="ghost">
-                              {view.is_pinned ? "Unpin" : "Pin"}
-                            </Button>
-                          </form>
-                          <form action={setDefaultSavedViewAction}>
-                            <input type="hidden" name="view_id" value={view.id} />
-                            <input type="hidden" name="type" value="expenses" />
-                            <Button type="submit" variant="ghost">
-                              {view.is_default ? "Default View" : "Set Default"}
-                            </Button>
-                          </form>
-                        </>
-                      ) : null}
-                      <form action={deleteSavedViewAction}>
-                        <input type="hidden" name="view_id" value={view.id} />
-                        <input type="hidden" name="type" value="expenses" />
-                        <ConfirmButton message="Delete this saved view?" variant="ghost">
-                          Delete
-                        </ConfirmButton>
-                      </form>
+                    <div className="space-y-3">
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Team Views</p>
+                      {teamViews.length === 0 ? (
+                        <p className="text-sm text-slate-600">No team expense views yet.</p>
+                      ) : (
+                        teamViews.map(renderSavedView)
+                      )}
                     </div>
-                    <form action={renameSavedViewAction} className="mt-3 flex flex-col gap-2 md:flex-row">
-                      <input type="hidden" name="view_id" value={view.id} />
-                      <input type="hidden" name="type" value="expenses" />
-                      <Input name="name" defaultValue={view.name} className="bg-white" />
-                      <Button type="submit" variant="ghost">
-                        Rename
-                      </Button>
-                    </form>
-                  </div>
-                ))}
+                  </>
+                ) : (
+                  teamViews.map(renderSavedView)
+                )}
               </div>
             )}
-            {!supportsPriorityFields && savedViews.length > 0 ? (
-              <p className="text-xs text-slate-500">
-                Pinning and default views are unavailable until the latest `saved_views` migration is applied.
-              </p>
+            {savedViews.length > 0 && (!supportsPriorityFields || !supportsOwnershipFields) ? (
+              <div className="space-y-1">
+                {!supportsPriorityFields ? (
+                  <p className="text-xs text-slate-500">
+                    Pinning and default views are unavailable until the latest `saved_views` migration is applied.
+                  </p>
+                ) : null}
+                {!supportsOwnershipFields ? (
+                  <p className="text-xs text-slate-500">
+                    Personal and team view grouping are unavailable until the saved view ownership migration is applied.
+                  </p>
+                ) : null}
+              </div>
             ) : null}
           </div>
         </div>

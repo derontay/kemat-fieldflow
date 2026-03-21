@@ -217,6 +217,10 @@ export default async function DashboardPage() {
       label: "Open command view" as const,
     },
   };
+  const isFirstRunUser =
+    dashboard.metrics.totalOpenTasks === 0 ||
+    taskSavedViewSummary.views.length + expenseSavedViewSummary.views.length === 0;
+  const dueTodayShortcut = taskSavedViewSummary.shortcuts.find((shortcut) => shortcut.key === "due_today")!;
 
   return (
     <div className="space-y-6">
@@ -224,6 +228,52 @@ export default async function DashboardPage() {
         title="Dashboard"
         subtitle={`A read-only overview for ${dashboard.organization.name} across projects, tasks, expenses, and field activity.`}
       />
+      {isFirstRunUser ? (
+        <Card className="space-y-5 p-6">
+          <div>
+            <p className="text-xs uppercase tracking-[0.25em] text-brand-700">Getting Started</p>
+            <h2 className="mt-2 font-serif text-3xl font-semibold text-ink">Start your Morning Ops workflow</h2>
+            <p className="mt-3 max-w-3xl text-sm text-slate-600">
+              Morning Ops is your daily command view: create work, check what is due today, and save the view you
+              want to open every morning.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-[1.5rem] border border-slate-200 bg-white/80 p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Step 1</p>
+              <p className="mt-2 font-medium text-ink">Create your first task</p>
+              <p className="mt-2 text-sm text-slate-600">Add one real task so the dashboard can start surfacing daily work.</p>
+              <div className="mt-4">
+                <ButtonLink href="/tasks" variant="ghost">
+                  Open Tasks
+                </ButtonLink>
+              </div>
+            </div>
+            <div className="rounded-[1.5rem] border border-slate-200 bg-white/80 p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Step 2</p>
+              <p className="mt-2 font-medium text-ink">View what&apos;s due today</p>
+              <p className="mt-2 text-sm text-slate-600">Use the due-today command view to see what needs attention first.</p>
+              <div className="mt-4">
+                <ButtonLink href={dueTodayShortcut.href} variant="ghost">
+                  {dueTodayShortcut.label}
+                </ButtonLink>
+              </div>
+            </div>
+            <div className="rounded-[1.5rem] border border-slate-200 bg-white/80 p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Step 3</p>
+              <p className="mt-2 font-medium text-ink">Save this as your first view</p>
+              <p className="mt-2 text-sm text-slate-600">
+                On the Tasks page, use the recommended views area to save Due Today so Morning Ops feels instant tomorrow.
+              </p>
+              <div className="mt-4">
+                <ButtonLink href="/tasks" variant="ghost">
+                  Go to saved views
+                </ButtonLink>
+              </div>
+            </div>
+          </div>
+        </Card>
+      ) : null}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <StatCard label="Total Projects" value={dashboard.metrics.totalProjects} />
         <StatCard label="Active Projects" value={dashboard.metrics.activeProjects} tone="default" />
@@ -283,7 +333,14 @@ export default async function DashboardPage() {
                   <p className="font-medium text-ink">{shortcut.name}</p>
                   <p className="mt-2 text-sm text-slate-600">{shortcut.description}</p>
                 </div>
-                {shortcut.matchedView ? <Badge tone="success">Saved</Badge> : null}
+                {shortcut.matchedView ? (
+                  <div className="flex items-center gap-2">
+                    <Badge tone="success">Saved</Badge>
+                    <Badge tone={shortcut.matchedView.user_id ? "default" : "success"}>
+                      {shortcut.matchedView.user_id ? "My View" : "Team View"}
+                    </Badge>
+                  </div>
+                ) : null}
               </div>
               <div className="mt-4">
                 <ButtonLink href={shortcut.href} variant="ghost">
@@ -307,7 +364,14 @@ export default async function DashboardPage() {
                   <p className="font-medium text-ink">{shortcut.name}</p>
                   <p className="mt-2 text-sm text-slate-600">{shortcut.description}</p>
                 </div>
-                {shortcut.matchedView ? <Badge tone="success">Saved</Badge> : null}
+                {shortcut.matchedView ? (
+                  <div className="flex items-center gap-2">
+                    <Badge tone="success">Saved</Badge>
+                    <Badge tone={shortcut.matchedView.user_id ? "default" : "success"}>
+                      {shortcut.matchedView.user_id ? "My View" : "Team View"}
+                    </Badge>
+                  </div>
+                ) : null}
               </div>
               <div className="mt-4">
                 <ButtonLink href={shortcut.href} variant="ghost">
